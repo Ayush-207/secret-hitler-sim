@@ -530,11 +530,10 @@ class Game:
         pres = self.pres
         if len(self.deck) < 3:
             self.reshuffle()
-        # PUBLIC deck estimate: discards are hidden, so nobody knows the draw
-        # pile's true split. What is public is the pool of cards not on the
-        # board (draw pile + discard pile). By exchangeability a 3-card draw is
-        # distributed as a draw from that pool (ignores the role-biased skew of
-        # the discard pile). Used by liberal updates and fascist deniability alike.
+        # PUBLIC pool: cards not on the board (draw pile + discard pile). Used by
+        # the fascist bots' deniability heuristic and by liberals only in "pool"
+        # mode; in "tracked" mode liberals use each world's own pile estimate
+        # (deck_event / deck_state).
         deck_before = (DECK_F - self.board_f, DECK_L - self.board_l)
         hand = self.draw(3)
         discard, pair = pres_discard(self.role[pres], self.fas, hand,
