@@ -40,6 +40,69 @@ def hand_probs(df, dl):
     return [math.comb(df, k) * math.comb(dl, 3 - k) / tot for k in range(4)]
 
 
+# ---------------- per-world deck tracking ----------------
+# The draw pile's true split is hidden (discards are secret). But inside one
+# world every role is known, so that world can infer how many F each drawn hand
+# held from what was enacted -- and the draw pile loses exactly the drawn hand,
+# whatever is discarded afterwards. A world's deck state depends only on the
+# world and the public events since the last reshuffle, so it is keyed by
+# (f0, n0, events) and memoized across observers and games.
+DECK_MODEL = "tracked"   # "tracked" (per-world) | "pool" (shared public pool)
+_DECK_MEMO = {}
+
+
+def deck_state(key):
+    """key = (f0, n0, events). Returns (dist, lik): dist[f] = P(draw pile holds
+    f fascist cards) after the events; lik = P(last event | earlier events).
+    Events: ("g", thresh, enacted_f) a government -- F is enacted iff the hand
+    holds >= thresh F (3 = both liberal, 2 = mixed, 1 = both fascist, under the
+    greedy-fascist assumption); ("v",) a vetoed hand; ("c", is_f) a chaos card."""
+    r = _DECK_MEMO.get(key)
+    if r is not None:
+        return r
+    f0, n0, ev = key
+    if not ev:
+        dist = [0.0] * (n0 + 1)
+        dist[f0] = 1.0
+        r = (dist, 1.0)
+    else:
+        prev = deck_state((f0, n0, ev[:-1]))[0]
+        n = len(prev) - 1
+        e = ev[-1]
+        if e[0] == "c":
+            is_f = e[1]
+            new = [0.0] * n
+            tot = 0.0
+            for f, q in enumerate(prev):
+                pc = (f if is_f else n - f) / n
+                if q and pc:
+                    new[f - is_f] += q * pc
+                    tot += q * pc
+            if tot <= 0:              # this world's deck belief is contradicted
+                new, tot = [1.0] * n, 0.0
+        else:
+            cn = math.comb(n, 3)
+            new = [0.0] * (n - 2)
+            tot = 0.0
+            for f, q in enumerate(prev):
+                if not q:
+                    continue
+                for k in range(4):
+                    pk = math.comb(f, k) * math.comb(n - f, 3 - k) / cn
+                    if not pk:
+                        continue
+                    if e[0] == "v":
+                        pc = 1.0
+                    else:
+                        pc = 1 - EPS if (k >= e[1]) == e[2] else EPS
+                    new[f - k] += q * pk * pc
+                    tot += q * pk * pc
+        s = sum(new)
+        r = ([x / s for x in new], max(tot, EPS))
+    _DECK_MEMO[key] = r
+    return r
+
+
 class Belief:
     """Posterior over the 30 ordered (Hitler, fascist) assignments, conditioned
     on the owner being liberal. Updated only on policy enactments."""
@@ -81,6 +144,11 @@ class Belief:
             lk = base if enacted_f else 1.0 - base
             lk = min(max(lk, EPS), 1 - EPS)
             self.w[idx] *= lk
+        self._renorm()
+
+    def apply(self, lks):
+        """Multiply each world by a precomputed likelihood (per-world deck model)."""
+        self.w = [w * l for w, l in zip(self.w, lks)]
         self._renorm()
 
     def observe_party(self, target, is_fascist):
@@ -198,6 +266,7 @@ class Game:
         self.deck = ["F"] * DECK_F + ["L"] * DECK_L
         rng.shuffle(self.deck)
         self.discards = []
+        self.wkeys = [(DECK_F, DECK_F + DECK_L, ())] * NH   # per-world deck state
         self.fail = 0
         self.term = None            # (pres, chan) of last successful gov
         self.pres = rng.randrange(N)
@@ -224,14 +293,35 @@ class Game:
             if self.alive[j]:
                 return j
 
+    def reshuffle(self):
+        self.deck += self.discards
+        self.discards = []
+        self.rng.shuffle(self.deck)
+        # the new pile is every card not on the board: known exactly again
+        self.wkeys = [(DECK_F - self.board_f, len(self.deck), ())] * NH
+
     def draw(self, k):
         if len(self.deck) < k:
-            self.deck += self.discards
-            self.discards = []
-            self.rng.shuffle(self.deck)
+            self.reshuffle()
         got = self.deck[:k]
         self.deck = self.deck[k:]
         return got
+
+    def deck_event(self, make_event, reweight):
+        """Advance every world's deck state by one public event; if reweight,
+        fold that world's likelihood of the event into all liberal beliefs."""
+        lks = [0.0] * NH
+        for idx, (h, f) in enumerate(HYPS):
+            f0, n0, ev = self.wkeys[idx]
+            key = (f0, n0, ev + (make_event(h, f),))
+            self.wkeys[idx] = key
+            lks[idx] = deck_state(key)[1]
+        if reweight:
+            for i in range(N):
+                if self.role[i] == "L":
+                    self.beliefs[i].apply(lks)
+            if self.public is not None:
+                self.public.apply(lks)
 
     def eligible(self):
         t = self.term or ()
@@ -439,9 +529,7 @@ class Game:
     def resolve_government(self, chan):
         pres = self.pres
         if len(self.deck) < 3:
-            self.deck += self.discards
-            self.discards = []
-            self.rng.shuffle(self.deck)
+            self.reshuffle()
         # PUBLIC deck estimate: discards are hidden, so nobody knows the draw
         # pile's true split. What is public is the pool of cards not on the
         # board (draw pile + discard pile). By exchangeability a 3-card draw is
@@ -454,6 +542,7 @@ class Game:
         self.discards.append(discard)
 
         if self.veto(pair, deck_before):
+            self.deck_event(lambda h, f: ("v",), reweight=False)
             self.discards += list(pair)
             self.fail += 1
             self.term = None
@@ -473,13 +562,19 @@ class Game:
         if enacted == "F":
             self.f_actors.add(chan)
         # Bayesian update (liberals only)
-        for i in range(N):
-            if self.role[i] == "L":
-                self.beliefs[i].update_policy(pres, chan, enacted == "F",
-                                              deck_before[0], deck_before[1])
-        if self.public is not None:
-            self.public.update_policy(pres, chan, enacted == "F",
-                                      deck_before[0], deck_before[1])
+        if DECK_MODEL == "tracked":
+            ef = enacted == "F"
+            self.deck_event(
+                lambda h, f: ("g", 3 - (pres in (h, f)) - (chan in (h, f)), ef),
+                reweight=True)
+        else:
+            for i in range(N):
+                if self.role[i] == "L":
+                    self.beliefs[i].update_policy(pres, chan, enacted == "F",
+                                                  deck_before[0], deck_before[1])
+            if self.public is not None:
+                self.public.update_policy(pres, chan, enacted == "F",
+                                          deck_before[0], deck_before[1])
         # win by policy count
         if self.board_f >= 6:
             self.winner = "F"
@@ -494,6 +589,10 @@ class Game:
 
     def chaos(self):
         card = self.draw(1)[0]
+        # the chaos card's colour is evidence too: each world predicts it from
+        # its own deck estimate (pool model treats it as uninformative)
+        self.deck_event(lambda h, f: ("c", card == "F"),
+                        reweight=DECK_MODEL == "tracked")
         self.board_f += card == "F"
         self.board_l += card == "L"
         self.fail = 0
@@ -549,7 +648,9 @@ def run(lib, fas, n_games, seed=1234):
 if __name__ == "__main__":
     import sys
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
-    libs = ["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
+    if len(sys.argv) > 2:            # optional: "pool" or "tracked"
+        DECK_MODEL = sys.argv[2]
+    libs =["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
     fass = ["greedy", "strategic", "groom", "compliant", "blend"]
     hdr = f"{'liberals':<10}{'fascists':<11}{'lib win%':>9}{'checkmate%':>12}{'shot_H%':>9}{'elections':>11}{'chaos':>8}{'execs':>8}"
     print(hdr)
