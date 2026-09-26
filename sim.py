@@ -467,9 +467,9 @@ class Game:
         cr, pr = self.role[chan], self.role[pres]
         # chancellor proposes
         if cr == "L" or (cr == "H" and self.fas != "greedy"):
-            propose = "F" not in pair
+            propose = "L" not in pair      # liberal: veto a forced 6th F (FF)
         elif cr == "F" and self.fas == "strategic":
-            propose = "L" not in pair
+            propose = "F" not in pair      # fascist: veto a forced L (LL)
         else:
             propose = False
         if not propose:

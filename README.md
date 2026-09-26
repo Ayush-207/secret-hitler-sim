@@ -24,7 +24,9 @@ elections, chaos, executions). Canonical rerun: `results_full_grid.txt`.
 6 players: 4 liberals, 1 fascist, 1 Hitler (official setup). 17-card deck (11F/6L),
 3-card presidential draws, **private discards** (as in the real game — players see
 enacted policies, never the discarded card); no strategy sees the draw pile's true
-split. 5–6p power track: F2 investigate, F3 special election, F4 execution, F5 execution + veto. Chaos (3 failed elections)
+split. 5–6p power track: F2 investigate, F3 special election, F4 execution, F5 execution + veto (from 5F the chancellor may propose discarding both cards; if the
+president agrees nothing is enacted and it counts as a failed election — liberals use it
+to escape a forced 6th F). Chaos (3 failed elections)
 enacts the top card with no power. Term limits on the last successful government.
 Electing Hitler chancellor at ≥3F = instant fascist win (the "checkmate").
 
@@ -97,22 +99,22 @@ executed, average elections and chaos events per game):
 
 | liberals \ fascists | greedy | strategic | groom | compliant | blend |
 |---|---|---|---|---|---|
-| naive | 61.1 | 65.0 | 68.1 | 68.1 | 68.1 |
-| stats1 | 71.5 | 66.6 | 62.5 | 62.5 | 62.5 |
-| **stats1-9g** | **93.4** | **92.8** | **92.0** | **71.5** | **77.5** |
-| hybrid | 59.3 | 59.0 | 57.1 | 57.1 | 57.1 |
-| stats2 | 64.1 | 59.5 | 56.0 | 56.0 | 56.0 |
+| naive | 64.2 | 66.9 | 69.8 | 69.8 | 69.8 |
+| stats1 | 75.3 | 69.1 | 64.2 | 64.2 | 64.2 |
+| **stats1-9g** | **95.2** | **93.6** | **93.0** | **72.2** | **78.2** |
+| hybrid | 62.9 | 61.1 | 58.6 | 58.6 | 58.6 |
+| stats2 | 67.4 | 60.6 | 58.4 | 58.4 | 58.4 |
 
 Checkmate% and shot-Hitler% for the stats1-9g row (the diagnostic columns that
 explain the win rates):
 
 | fascists | checkmate% | shot H% |
 |---|---|---|
-| greedy | 3.8 | 18.3 |
-| strategic | 5.3 | 13.6 |
-| groom | 5.8 | 13.1 |
-| compliant | 25.1 | 4.7 |
-| blend | 19.8 | 8.8 |
+| greedy | 4.0 | 17.8 |
+| strategic | 5.7 | 13.6 |
+| groom | 6.1 | 13.1 |
+| compliant | 25.4 | 4.7 |
+| blend | 20.1 | 8.5 |
 
 (Naive/stats1/hybrid/stats2 rows against `compliant`/`blend` are identical to their
 `groom` rows: those brains have no public belief, so compliant/blend fascists fall
@@ -125,13 +127,13 @@ nominations, since its fascist's deniability check is almost always true.)
 route power (partner, or Hitler at 3F) and almost never coincide with the public
 consensus — measured deviation rates: **~90% for fascist presidents vs ~5% for
 liberals**. That separation is nearly perfect signal. Adding the consensus-deviation
-rule took liberals from 62.5% → 92.0% against groom, and instrumented runs confirm
+rule took liberals from 64.2% → 93.0% against groom, and instrumented runs confirm
 the array pins both fascist seats from nominations alone, on top of enactment
 evidence. A hard label (one strike, permanent) performs no better than 9:1 soft
 evidence — the signal saturates.
 
 **2. The enactment channel alone has a groom-shaped hole.** Plain `stats1` beats
-greedy fascists convincingly (71.5% vs 61.1% naive) because greedy play feeds the
+greedy fascists convincingly (75.3% vs 64.2% naive) because greedy play feeds the
 model maximal, well-attributed evidence. But groom — a Hitler who never voluntarily
 enacts F — is invisible by construction: clean enactments are *positive* evidence,
 so his posterior sinks while the greedy accomplice soaks up the suspicion and the
@@ -142,8 +144,8 @@ system.
 **3. Trust-concentration is the vulnerability; the consensus rule fixes it as a side
 effect.** `stats2` (random top-2 crowns) made things *worse* — under grooming,
 Hitler is permanently in the top-2, so widening the lottery guarantees he's always
-in it (56.0% vs groom, the worst liberal cell in the grid). The blind-crown `hybrid`
-also failed (57–59% everywhere): rotation hands Hitler the chancellorship on a
+in it (58.4% vs groom, the worst liberal cell in the grid). The blind-crown `hybrid`
+also failed (59–63%, below naive in every column): rotation hands Hitler the chancellorship on a
 guaranteed schedule, wastes tempo (chaos nearly doubles), and its blind nominations
 trip the deviation rule (muddying the signal at exactly the checkmate-critical
 phase). The winning response to a poisoned ranking was not to randomize the crown —
@@ -152,25 +154,25 @@ delivery vehicle.
 
 **4. Fascist counter-adaptation recovers ~21 points, not a flip.** `compliant`
 (nominate the consensus always, progress purely via enactments) blinds the
-nomination channel: liberal win rate falls 92.0% → 71.5%. Perfect compliance is
-the best counter found (fascist wins 28.5%); a 70/30 mix did worse in an earlier run
+nomination channel: liberal win rate falls 93.0% → 72.2%. Perfect compliance is
+the best counter found (fascist wins 27.8%); a 70/30 mix did worse in an earlier run
 (fascist wins ~23%) because deviated nominations are 9:1 evidence events, and the
 `blend` (strategic enactment timing + clean Hitler + compliant nominations) does
-worse still (liberals 77.5%) — delayed F's prolong the game while evidence
+worse still (liberals 78.2%) — delayed F's prolong the game while evidence
 accumulates, and tempo beats stealth when stealth is already maxed.
 
 **5. The escalation ladder** (liberal win rate vs `stats1-9g` unless noted):
 
 ```
-greedy fascists        →  liberals (stats1) win 71.5%
-  fascists adapt: groom   →  stats1 falls to 62.5% (checkmate 31.4%)
-    liberals adapt: +nomination tell →  92.0%
-      fascists adapt: compliant →  71.5%
-        fascists adapt more: blend →  no improvement (liberals 77.5%)
-liberals adapt: blind-crown hybrid →  fails (57.1%)
+greedy fascists        →  liberals (stats1) win 75.3%
+  fascists adapt: groom   →  stats1 falls to 64.2% (checkmate 31.4%)
+    liberals adapt: +nomination tell →  93.0%
+      fascists adapt: compliant →  72.2%
+        fascists adapt more: blend →  no improvement (liberals 78.2%)
+liberals adapt: blind-crown hybrid →  fails (58.6%)
 ```
 
-**Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 71.5%.** Both
+**Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 72.2%.** Both
 sides at their strongest; liberals ahead on every axis (policy race, executions,
 checkmate denial).
 
@@ -195,7 +197,7 @@ that incriminate them.
   unproven.
 - The ~90% fascist deviation rate is a property of the tested doctrines, not a law.
   Real adversaries who know the rule can comply perfectly — at the measured cost of
-  tempo (28.5% win rate).
+  tempo (27.8% win rate).
 - 6 players only. The board, Hitler-knowledge asymmetry, and posterior size
   (30 worlds) all change at other player counts.
 - Compute realism: 30-world posteriors × 6 players is a laptop's job, not a human's.
