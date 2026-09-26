@@ -442,7 +442,12 @@ class Game:
             self.deck += self.discards
             self.discards = []
             self.rng.shuffle(self.deck)
-        deck_before = (self.deck.count("F"), self.deck.count("L"))
+        # PUBLIC deck estimate: discards are hidden, so nobody knows the draw
+        # pile's true split. What is public is the pool of cards not on the
+        # board (draw pile + discard pile). By exchangeability a 3-card draw is
+        # distributed as a draw from that pool (ignores the role-biased skew of
+        # the discard pile). Used by liberal updates and fascist deniability alike.
+        deck_before = (DECK_F - self.board_f, DECK_L - self.board_l)
         hand = self.draw(3)
         discard, pair = pres_discard(self.role[pres], self.fas, hand,
                                      deck_before, self.board_f)
@@ -544,8 +549,8 @@ def run(lib, fas, n_games, seed=1234):
 if __name__ == "__main__":
     import sys
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
-    libs = ["stats1-9g"]
-    fass = ["compliant", "greedy", "groom", "blend"]
+    libs = ["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
+    fass = ["greedy", "strategic", "groom", "compliant", "blend"]
     hdr = f"{'liberals':<10}{'fascists':<11}{'lib win%':>9}{'checkmate%':>12}{'shot_H%':>9}{'elections':>11}{'chaos':>8}{'execs':>8}"
     print(hdr)
     print("-" * len(hdr))
