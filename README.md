@@ -9,6 +9,8 @@ reliance on what players say.
 every fascist doctrine tested, including ones designed with full knowledge of the
 liberal model. The single biggest lever is reading **nomination behavior**.
 
+Code walkthrough (how each component works, how the model evolved): [HOW_IT_WORKS.md](HOW_IT_WORKS.md).
+
 ## Usage
 
 ```bash
