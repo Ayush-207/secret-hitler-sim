@@ -10,7 +10,9 @@ the answer degrade against different fascist play styles?
 Assumptions:
 - 6 players: 4 liberals, 1 fascist, 1 Hitler. 5-6p board:
   F2 investigate, F3 special election, F4 execution, F5 execution + veto unlock.
-- Deck: 11F / 6L. Discards are public (deck composition common knowledge).
+- Deck: 11F / 6L. Discards are PRIVATE (as in the real game): players observe
+  enacted policies, nominations, and votes — never the discarded card's color.
+  The pile's card COUNT is public (matters only for reshuffles).
 - Chaos (3 failed elections) enacts the top card; no executive power fires.
 - Term limits: the president+chancellor of the last successful government
   cannot be chancellor candidates in the immediately following election.
@@ -542,8 +544,8 @@ def run(lib, fas, n_games, seed=1234):
 if __name__ == "__main__":
     import sys
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
-    libs = ["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
-    fass = ["greedy", "strategic", "groom", "compliant", "blend"]
+    libs = ["stats1-9g"]
+    fass = ["compliant", "greedy", "groom", "blend"]
     hdr = f"{'liberals':<10}{'fascists':<11}{'lib win%':>9}{'checkmate%':>12}{'shot_H%':>9}{'elections':>11}{'chaos':>8}{'execs':>8}"
     print(hdr)
     print("-" * len(hdr))

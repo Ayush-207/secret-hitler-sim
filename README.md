@@ -21,11 +21,11 @@ elections, chaos, executions). Canonical rerun: `results_full_grid.txt`.
 ## Rules modeled
 
 6 players: 4 liberals, 1 fascist, 1 Hitler (official setup). 17-card deck (11F/6L),
-3-card presidential draws, public discards (deck composition = common knowledge).
-5–6p power track: F2 investigate, F3 special election, F4 execution, F5 execution +
-veto. Chaos (3 failed elections) enacts the top card with no power. Term limits on
-the last successful government. Electing Hitler chancellor at ≥3F = instant fascist
-win (the "checkmate").
+3-card presidential draws, **private discards** (as in the real game — players see
+enacted policies, never the discarded card). 5–6p power track: F2 investigate, F3
+special election, F4 execution, F5 execution + veto. Chaos (3 failed elections)
+enacts the top card with no power. Term limits on the last successful government.
+Electing Hitler chancellor at ≥3F = instant fascist win (the "checkmate").
 
 ## The model
 
@@ -187,6 +187,6 @@ that incriminate them.
   (30 worlds) all change at other player counts.
 - Compute realism: 30-world posteriors × 6 players is a laptop's job, not a human's.
   At a real table this is a bounded approximation (6 trust axes) at best.
-- Discards are public in this sim (a defensible house rule); real games hide the
-  president's discard, which removes some deck-composition information the model
-  uses.
+- Discards are private, as in the real game: players never observe the discarded
+  card's color — only enacted policies, nominations, and votes. The deck's card
+  *count* (including the discard pile, for reshuffles) is public.
