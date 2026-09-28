@@ -116,8 +116,8 @@ An enacted F is weak evidence, since honest governments get forced into it. An e
 
 ```python
 joint = b.p_pair_liberal(pres, chan)
-cap = 0.40 if self.board_f < 3 else 0.25              # stricter once checkmate is possible
-t = {0: 0.28, 1: 0.28, 2: 0.30, 3: 0.40}.get(self.board_f, 0.40)
+cap = 0.40 if self.board_f < 3 else 0.10              # stricter once checkmate is possible
+t = {0: 0.32, 1: 0.32, 2: 0.32, 3: 0.40}.get(self.board_f, 0.40)
 return joint >= t and ph[chan] <= cap
 ```
 
@@ -256,7 +256,7 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 14 | Counter B: crown cap 0.25 → 0.10 at ≥3F | demand near-certainty when the crown is a weapon | 58.1 → 63.3; A+B: 64.9 |
 | 15 | Liberal presidents comply too | innocent deviations (6%) were the only ones compliant produced; remove them | 63.8 → 68.1 vs compliant; every cell gains |
 | 16 | Ignore deviations from an illegal consensus | when the consensus pick exceeded the cap there was nothing to deviate from; penalizing it punished innocence | 68.1 → 69.2 vs compliant |
-| 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **75.8** (10k); policy losses 450 → 255 |
+| 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **76.3** (10k, with calibrated thresholds); policy losses 450 → 255 |
 
 Step 10 needs one extra idea. The draw pile loses exactly the 3 cards drawn, whatever gets discarded. Inside a world the roles are known, so that world can work out how many F each hand probably held:
 
@@ -281,14 +281,14 @@ This is the liberal win rate in %, over 10,000 games per cell. `stats1-9g` is th
 | --- | --- | --- | --- | --- | --- |
 | naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
 | stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
-| **stats1-9g** | **96.1** | **96.5** | **96.2** | **75.8** | **87.1** |
+| **stats1-9g** | **97.0** | **96.8** | **96.3** | **76.3** | **87.1** |
 | hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
 | stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
 
-- **Best against best:** `stats1-9g` vs `compliant`, liberals **75.8%** — 58.9% before the liberal response (crown-phase counters A+B, nomination compliance, unified voting).
+- **Best against best:** `stats1-9g` vs `compliant`, liberals **76.3%** — 58.9% before the liberal response (crown-phase counters A+B, nomination compliance, unified voting, calibrated vote thresholds).
 - **Enactment evidence alone loses to groom.** `stats1` does worse than `naive` there (66.1 vs 69.8).
 - **The nomination tell fixes groom.** Checkmates drop from 31% to 2.9%.
-- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 75.8% of games.
+- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 76.3% of games.
 
 ### Why the crown cap is 0.10 (calibration, not magic)
 

@@ -1,0 +1,37 @@
+VOTE_T sensitivity sweep -- stats1-9g liberals (A+B+compliance+unified voting active),
+3,000 games per cell (seeds 9000+j*100000), 6-player game.
+Question: the joint-liberal vote thresholds {board_f: t} were hand-picked early
+(0.28/0.28/0.30/0.40) to break the original deadlock and never re-examined.
+
+Phase 1 -- flat t at every board_f:
+ flat t |  compliant     greedy      groom      blend  strategic | worst
+   0.24 |     74.5       96.0       95.1       86.1       95.8  | 74.5
+   0.28 |     75.5       96.2       95.4       86.5       96.1  | 75.5   <- old default
+   0.32 |     77.5       96.7       95.9       87.1       96.6  | 77.5   <- peak
+   0.36 |     76.8       96.9       95.7       87.0       96.4  | 76.8
+   0.40 |     15.6       93.5       93.0       64.9       93.7  | 15.6   <- deadlock
+
+Phase 2 -- base 0.32, vary the >=3F threshold (t3):
+  t3 0.28-0.44: worst case 77.2-77.7, flat -- t3 is insensitive (the crown
+  cap and provably-not-Hitler already govern the endgame; the vote threshold
+  adds nothing there).
+
+Phase 3 -- t3=0.40, vary mid-game (t0=t1=t2):
+  0.28 -> 75.8 | 0.30 -> 77.6 | 0.32 -> 77.7 | 0.34 -> 77.8  (flat plateau)
+
+Phase 3b -- 6,000-game confirmation of 0.32/0.40 vs 0.28/0.40 on the two
+sensitive columns: compliant 76.8 both; blend 86.4 vs 86.6 -- plateau.
+
+Reading:
+- Interior peak at t_mid ~0.32 (+2.0 worst case over the old 0.28), a plateau
+  across 0.30-0.34: the exact value within the plateau is insensitive.
+- The 0.40-flat tail is the original deadlock returning: with unified voting,
+  EVERY election now gates on t, and 0.40 exceeds the pair-prior at game start
+  almost always -> chaos collapse (15.6%). Hand-picking thresholds has a real
+  failure mode; sweeping found the plateau the old default sat at the edge of.
+- t3 (>=3F) is insensitive: endgame votes are governed by the crown cap and
+  counter-A, not the vote gate.
+- New default: VOTE_T = {0: 0.32, 1: 0.32, 2: 0.32, 3: 0.40}.
+
+Note on seeds: phase-1 and phase-2/3 use different seed blocks than the
+canonical 10k grid, so cross-table comparisons carry ~+/-1 point noise.

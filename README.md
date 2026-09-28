@@ -40,8 +40,9 @@ world is reweighted by how likely the observed play was *if that world were true
 then renormalized. Decisions are queries against this one distribution:
 
 - **Vote** — yes iff P(president & chancellor both liberal) ≥ threshold and
-  chancellor's P(Hitler) ≤ cap. Thresholds tighten as fascist policies accumulate
-  (0.28 → 0.40 joint; Hitler-cap 0.40 → 0.25 at 3F, the checkmate zone).
+  chancellor's P(Hitler) ≤ cap. Thresholds: 0.32 flat, 0.40 at ≥3F
+  (calibrated by sweep, see below); Hitler-cap 0.40 → 0.10 at 3F
+  (calibrated, see below).
 - **Nominate** — the argmax of P(president & candidate both liberal) among eligible
   seats, same cap.
 - **Execute** — argmax P(Hitler). **Investigate** — argmax P(fascist); the reveal is
@@ -105,15 +106,15 @@ executed, average elections and chaos events per game):
 | liberals \ fascists | greedy | strategic | groom | compliant | blend |
 |---|---|---|---|---|---|
 | naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
-| stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
-| **stats1-9g** | **96.1** | **96.5** | **96.2** | **75.8** | **87.1** |
-| hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
-| stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
+| stats1 | 75.0 | 69.8 | 65.8 | 75.0 | 65.8 |
+| **stats1-9g** | **97.0** | **96.8** | **96.3** | **76.3** | **87.1** |
+| hybrid | 58.5 | 60.5 | 59.4 | 58.5 | 59.4 |
+| stats2 | 73.2 | 68.3 | 63.9 | 73.2 | 63.9 |
 
 The `stats1-9g` row includes all four liberal adaptations (crown-phase counters
 A+B, nomination compliance, unified voting — see Findings 6–7 and the
-calibration section below). Without any of them the row reads 95.2 / 93.6 /
-93.0 / 58.9 / 78.2 — the adaptations lift the worst case by +16.9 points at no
+calibration sections below). Without any of them the row reads 95.2 / 93.6 /
+93.0 / 58.9 / 78.2 — the adaptations lift the worst case by +17.4 points at no
 cost to any other cell.
 
 Checkmate% and shot-Hitler% for the stats1-9g row (the diagnostic columns that
@@ -121,11 +122,11 @@ explain the win rates):
 
 | fascists | checkmate% | shot H% |
 |---|---|---|
-| greedy | 2.0 | 16.8 |
-| strategic | 2.6 | 12.3 |
-| groom | 2.9 | 12.6 |
-| compliant | 14.4 | 10.2 |
-| blend | 11.1 | 7.6 |
+| greedy | 1.4 | 16.8 |
+| strategic | 2.4 | 13.3 |
+| groom | 3.0 | 12.8 |
+| compliant | 13.8 | 9.8 |
+| blend | 10.8 | 8.2 |
 
 (Rows for the brains *without* a public belief follow a simple pattern: against
 `compliant` they equal their `greedy` row, and against `blend` their `groom` row.
@@ -170,6 +171,31 @@ failure modes are structural. Pairing the cap with an exact rule — a seat elec
 chancellor at ≥3F while the game continued is **provably not Hitler** (zero those
 worlds) — covers the cap's blind spot (records clean enough to fall under any
 threshold) and lifts the compliant cell further; see Findings 6.
+
+### Calibrating the vote thresholds (why 0.32)
+
+The joint-liberal vote gates (`VOTE_T`, one threshold per board state) were
+hand-picked early — 0.28/0.28/0.30/0.40 — to break the original deadlock where
+0.40 everywhere passed *no* government. They were never re-examined, even after
+unified voting made the threshold govern *every* liberal vote as one block.
+Sweeping flat values (3,000 games per cell, full data in `vote_sweep.txt`):
+
+| flat t | compliant | greedy | groom | blend | strategic | worst case |
+|---|---|---|---|---|---|---|
+| 0.24 | 74.5 | 96.0 | 95.1 | 86.1 | 95.8 | 74.5 |
+| 0.28 (old default) | 75.5 | 96.2 | 95.4 | 86.5 | 96.1 | 75.5 |
+| **0.32** | **77.5** | **96.7** | **95.9** | **87.1** | **96.6** | **77.5** |
+| 0.36 | 76.8 | 96.9 | 95.7 | 87.0 | 96.4 | 76.8 |
+| 0.40 | 15.6 | 93.5 | 93.0 | 64.9 | 93.7 | **15.6** |
+
+Same shape as the cap sweep: an interior peak (a 0.30–0.34 plateau, +2.0 worst
+case over the old default) with a structural collapse past 0.36 — at 0.40 flat
+the threshold exceeds the pair-prior at game start, no government passes, and
+chaos hands fascists the game (15.6%: the deadlock that motivated the original
+hand-pick, reproduced as a measured tail). The endgame threshold t₃ (board ≥3F)
+is *insensitive* across 0.28–0.44 — endgame votes are governed by the crown cap
+and the provably-not-Hitler rule, not the vote gate. New default:
+`VOTE_T = {0: 0.32, 1: 0.32, 2: 0.32, 3: 0.40}`.
 
 ## Findings
 
@@ -221,8 +247,8 @@ greedy fascists        →  liberals (stats1) win 75.3%
       fascists adapt: compliant →  72.2% (58.9% after the greedy-card fix)
         fascists adapt more: blend →  no improvement (liberals 78.2%)
 liberals adapt: blind-crown hybrid →  fails (58.6%)
-liberals adapt again: crown-phase counters (A+B+nomination-comply) →  69.3% (69.3 at 10k)
-liberals adapt once more: +unified voting →  75.9% (75.8 at 10k)
+liberals adapt again: crown-phase counters (A+B+nomination-comply) →  69.3%
+liberals adapt once more: +unified voting +calibrated thresholds →  76.3%
 ```
 
 **6. Why compliant hurts, and the counter that works.** Under `compliant` the
@@ -259,8 +285,9 @@ Three counters, all in the final grid:
   shared rational behavior, and punishing innocence is exactly the failure mode
   compliant exploits.
 
-Net effect of the counters on the 10k grid: worst case 58.9 → **75.8**, with
-every other cell *improving* 2–3 points (the cleaner channel helps everywhere).
+Net effect of the counters plus calibrated thresholds on the 10k grid:
+worst case 58.9 → **76.3**, with every other cell *improving* (the cleaner
+channel helps everywhere).
 
 **7. Anatomy of the remaining losses — and the voting fix.** With the counters
 in, an autopsy of the ~31% of games `stats1-9g` still loses to `compliant`
@@ -284,7 +311,12 @@ cast the same vote computed from the public belief** (`LIB_VOTE_COMPLY`) — a
 4-vote block. Policy losses vs compliant dropped 450 → 255 (4k); checkmates
 were untouched (the crown vote was already 5–0). The gain is voting mechanics,
 not new evidence — and like every fix that removed liberal-side noise, it lifted
-every cell: worst case 69.3 → **75.9**.
+every cell: worst case 69.3 → 75.9 at 4k, **76.3 in the final 10k grid** after
+the vote-threshold calibration below. One calibration trap from this fix: the
+0.32 threshold was measured on the *public-belief* vote path, and does **not**
+transfer to brains voting on private arrays — self-knowledge zeroing lowers
+private pair scores enough that 0.32 deadlocks them (16% wins, 8.7 chaos/game).
+The two paths keep their own constants (`VOTE_T` vs a private 0.28).
 
 Two channels were *measured and rejected* on falsification grounds:
 
@@ -306,10 +338,11 @@ Two channels were *measured and rejected* on falsification grounds:
   including `stats1`, which has no public belief at all.)
 
 **Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 72.2%**
-before the greedy-card fix, 58.9% after it, **75.8% through the full liberal
-response** (crown-phase counters + compliance on both channels; 10k grid). Both
-sides at their strongest; the escalation ladder keeps tilting back to the
-liberals because the channels they read are the channels fascists must use.
+before the greedy-card fix, 58.9% after it, **76.3% through the full liberal
+response** (crown-phase counters + compliance on both channels + calibrated
+thresholds; 10k grid). Both sides at their strongest; the escalation ladder
+keeps tilting back to the liberals because the channels they read are the
+channels fascists must use.
 
 ## Why the rule works (the information argument)
 

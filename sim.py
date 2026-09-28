@@ -41,6 +41,10 @@ VOTE_LK = 0.0       # vote-record evidence: OFF by default -- measured stacked-d
                     # noise (40% noise -> worse than ignoring votes). See README F7.
 LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (4-vote block)
                         # (measured better on the worst case by +6.7 pts -- see README)
+VOTE_T = {0: 0.32, 1: 0.32, 2: 0.32, 3: 0.40}   # joint-liberal vote thresholds by
+                            # board_f (dict; .get(board_f, 0.40) beyond). Calibrated
+                            # by sweep -- vote_sweep.txt (interior peak; t_mid 0.30-0.34
+                            # flat, t3 insensitive, 0.40 flat = deadlock)
 
 
 def hand_probs(df, dl):
@@ -476,13 +480,18 @@ class Game:
         if LIB_VOTE_COMPLY and self.public is not None:
             ph_pub, _ = self.public.marginals()
             cap = 0.40 if self.board_f < 3 else CROWN_CAP
-            t = {0: 0.28, 1: 0.28, 2: 0.30, 3: 0.40}.get(self.board_f, 0.40)
+            t = VOTE_T.get(self.board_f, 0.40)
             return (self.public.p_pair_liberal(pres, chan) >= t
                     and ph_pub[chan] <= cap)
         b = self.beliefs[voter]
         ph, pf = b.marginals()
         cap = 0.40 if self.board_f < 3 else CROWN_CAP
-        t = {0: 0.28, 1: 0.28, 2: 0.30, 3: 0.40}.get(self.board_f, 0.40)
+        # PRIVATE path (brains without a public belief): a 0.32 gate deadlocks
+        # here -- self-knowledge zeroing lowers private pair scores (some seats
+        # score ~0.28-0.30 at game start, vs ~0.60 from the public belief).
+        # The 0.32 calibration was measured on the unified public-belief path;
+        # private votes keep their own (older) 0.28 default.
+        t = {0: 0.28, 1: 0.28, 2: 0.28, 3: 0.40}.get(self.board_f, 0.40)
         joint = b.p_pair_liberal(pres, chan)
         return joint >= t and ph[chan] <= cap
 
