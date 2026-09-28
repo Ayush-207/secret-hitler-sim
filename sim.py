@@ -36,6 +36,11 @@ CROWN_CAP = 0.10  # Hitler-cap at >=3F (the checkmate zone); calibrated by the
                   # sweep in cap_sweep.txt -- interior peak of a two-sided trade-off
 LIB_COMPLY = True   # liberal presidents also nominate the public-consensus pick
                     # (measured better in every cell -- see cap_sweep.txt / README)
+VOTE_LK = 0.0       # vote-record evidence: OFF by default -- measured stacked-deck
+                    # when on (we wrote the fascists' vote rule) and unstable under
+                    # noise (40% noise -> worse than ignoring votes). See README F7.
+LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (4-vote block)
+                        # (measured better on the worst case by +6.7 pts -- see README)
 
 
 def hand_probs(df, dl):
@@ -184,6 +189,24 @@ class Belief:
         for idx, (h, f) in enumerate(HYPS):
             if h == seat:
                 self.w[idx] = 0.0
+        self._renorm()
+
+    def update_vote(self, voter, pres, chan, yes):
+        """Vote-record evidence: votes are public in the real game. In a world
+        where the voter is FASCIST, their vote is determined by doctrine: yes
+        iff the government contains a fascist. In a world where the voter is
+        LIBERAL, the vote follows the liberal vote rule (computed there, passed
+        in as the observed vote). So only the fascist-side likelihood moves:
+        P(vote | voter fascist in this world, gov composition in this world).
+        Clamped like all behavioral evidence."""
+        for idx, (h, f) in enumerate(HYPS):
+            voter_f = voter in (h, f)
+            if not voter_f:
+                continue            # liberal-side likelihood: 1 (handled by rule)
+            gov_f = pres in (h, f) or chan in (h, f)
+            predicted = gov_f       # fascist votes yes iff gov contains a fascist
+            lk = VOTE_LK if (yes == predicted) else (1 - VOTE_LK)
+            self.w[idx] *= min(max(lk, EPS), 1 - EPS)
         self._renorm()
 
     def marginals(self):
@@ -447,6 +470,15 @@ class Game:
             return bool(gov & self.fascists)
         if self.lib == "naive":
             return pres not in self.f_actors and chan not in self.f_actors
+        # LIB_VOTE_COMPLY: all liberals cast the SAME vote derived from the
+        # public belief (a 4-vote block). Private arrays stay for nominations,
+        # executions, investigations -- only the roll-call is unified.
+        if LIB_VOTE_COMPLY and self.public is not None:
+            ph_pub, _ = self.public.marginals()
+            cap = 0.40 if self.board_f < 3 else CROWN_CAP
+            t = {0: 0.28, 1: 0.28, 2: 0.30, 3: 0.40}.get(self.board_f, 0.40)
+            return (self.public.p_pair_liberal(pres, chan) >= t
+                    and ph_pub[chan] <= cap)
         b = self.beliefs[voter]
         ph, pf = b.marginals()
         cap = 0.40 if self.board_f < 3 else CROWN_CAP
@@ -534,6 +566,18 @@ class Game:
                                                       self.nom_strength)
 
             votes = [self.vote(i, self.pres, chan) for i in self.alive_list()]
+            # vote-record evidence (public roll-call): each liberal folds every
+            # OTHER voter's roll-call vote into their posterior + the public
+            # array. Only fascist-side likelihoods move (liberal-side voting
+            # behavior is the voters' own rule -- using it would feed back).
+            if VOTE_LK:
+                for k, j in enumerate(self.alive_list()):
+                    for i in range(N):
+                        if self.role[i] == "L" and i != j:
+                            self.beliefs[i].update_vote(j, self.pres, chan,
+                                                        votes[k])
+                    if self.public is not None:
+                        self.public.update_vote(j, self.pres, chan, votes[k])
             yes = sum(votes)
             alive_n = len(self.alive_list())
             self.last_pres, self.last_chan = self.pres, chan

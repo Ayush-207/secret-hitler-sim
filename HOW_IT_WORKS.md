@@ -256,6 +256,7 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 14 | Counter B: crown cap 0.25 → 0.10 at ≥3F | demand near-certainty when the crown is a weapon | 58.1 → 63.3; A+B: 64.9 |
 | 15 | Liberal presidents comply too | innocent deviations (6%) were the only ones compliant produced; remove them | 63.8 → 68.1 vs compliant; every cell gains |
 | 16 | Ignore deviations from an illegal consensus | when the consensus pick exceeded the cap there was nothing to deviate from; penalizing it punished innocence | 68.1 → 69.2 vs compliant |
+| 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **75.8** (10k); policy losses 450 → 255 |
 
 Step 10 needs one extra idea. The draw pile loses exactly the 3 cards drawn, whatever gets discarded. Inside a world the roles are known, so that world can work out how many F each hand probably held:
 
@@ -280,14 +281,14 @@ This is the liberal win rate in %, over 10,000 games per cell. `stats1-9g` is th
 | --- | --- | --- | --- | --- | --- |
 | naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
 | stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
-| **stats1-9g** | **96.6** | **96.3** | **95.3** | **69.3** | **83.2** |
+| **stats1-9g** | **96.1** | **96.5** | **96.2** | **75.8** | **87.1** |
 | hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
 | stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
 
-- **Best against best:** `stats1-9g` vs `compliant`, liberals **69.3%** — 58.9% before the crown-phase counters (A, B, liberal compliance, spurious-tell fix).
+- **Best against best:** `stats1-9g` vs `compliant`, liberals **75.8%** — 58.9% before the liberal response (crown-phase counters A+B, nomination compliance, unified voting).
 - **Enactment evidence alone loses to groom.** `stats1` does worse than `naive` there (66.1 vs 69.8).
-- **The nomination tell fixes groom.** Checkmates drop from 31% to 3.6%.
-- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 69.3% of games.
+- **The nomination tell fixes groom.** Checkmates drop from 31% to 2.9%.
+- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 75.8% of games.
 
 ### Why the crown cap is 0.10 (calibration, not magic)
 
@@ -312,6 +313,6 @@ location may move with a differently-groomed Hitler, but the interior peak does 
 
 - The fascist strategies are hand-written rules, not an optimal opponent. A fascist tuned against the exact likelihood tables could do better.
 - The liberal model assumes fascists push F when they can. Against other styles its numbers are a little off, which is why every likelihood is clamped.
-- Votes are public in the real game, but the model doesn't use them yet. Early measurement: fascist votes split 100/0 by government composition, liberal votes 94/28 — likely the second-biggest untapped channel. Veto proposals/acceptances and the *targeting choices* of liberal executive powers are also unmodeled.
+- Votes are public in the real game. As *evidence* they were measured and rejected: encoding the fascists' vote rule into the likelihood hit 99.8% (stacked deck — we wrote both sides), but 20% fascist vote noise drops it to 83.7 and 40% inverts it to 49.9 (worse than ignoring votes). As *mechanics* they matter: unified public-belief voting (row 17) is worth +6.7 on the worst case. Veto proposals/acceptances and the *targeting choices* of liberal executive powers are also unmodeled.
 - It covers 6 players only. Other player counts change the board and who knows whom.
 - 30 worlds × 6 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.

@@ -73,7 +73,7 @@ switching between them moves every cell by ≤1.2 points (within noise).
 | `naive` | yes unless the seat ever enacted F; random powers | next player clockwise | crude blacklist only |
 | `stats1` | Bayesian, as above | argmax (deterministic) | enactments |
 | `stats2` | = stats1 | random top-2 argmax | enactments |
-| `stats1-9g` | = stats1 | **public-consensus pick** (comply) | enactments **+ nomination-deviation (9:1)** + provably-not-Hitler + crown cap 0.10 at ≥3F |
+| `stats1-9g` | = stats1, **unified public-belief vote** | **public-consensus pick** (comply) | enactments **+ nomination-deviation (9:1)** + provably-not-Hitler + crown cap 0.10 at ≥3F |
 | `hybrid` | = stats1-9g | **blind rotation at ≥3F**, argmax below | enactments + nomination-deviation |
 
 **Fascist doctrines** (Hitler + the one fascist share it)
@@ -106,25 +106,26 @@ executed, average elections and chaos events per game):
 |---|---|---|---|---|---|
 | naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
 | stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
-| **stats1-9g** | **96.6** | **96.3** | **95.3** | **69.3** | **83.2** |
+| **stats1-9g** | **96.1** | **96.5** | **96.2** | **75.8** | **87.1** |
 | hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
 | stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
 
-The `stats1-9g` row includes the three crown-phase counters (see Finding 6 and
-the calibration section below). Without them the row reads 95.2 / 93.6 / 93.0 /
-58.9 / 78.2 — the counters lift the worst case by +10.4 points at no cost to
-any other cell.
+The `stats1-9g` row includes all four liberal adaptations (crown-phase counters
+A+B, nomination compliance, unified voting — see Findings 6–7 and the
+calibration section below). Without any of them the row reads 95.2 / 93.6 /
+93.0 / 58.9 / 78.2 — the adaptations lift the worst case by +16.9 points at no
+cost to any other cell.
 
 Checkmate% and shot-Hitler% for the stats1-9g row (the diagnostic columns that
 explain the win rates):
 
 | fascists | checkmate% | shot H% |
 |---|---|---|
-| greedy | 1.3 | 16.9 |
-| strategic | 2.7 | 13.8 |
-| groom | 3.6 | 13.3 |
-| compliant | 15.3 | 9.5 |
-| blend | 13.3 | 9.3 |
+| greedy | 2.0 | 16.8 |
+| strategic | 2.6 | 12.3 |
+| groom | 2.9 | 12.6 |
+| compliant | 14.4 | 10.2 |
+| blend | 11.1 | 7.6 |
 
 (Rows for the brains *without* a public belief follow a simple pattern: against
 `compliant` they equal their `greedy` row, and against `blend` their `groom` row.
@@ -220,7 +221,8 @@ greedy fascists        →  liberals (stats1) win 75.3%
       fascists adapt: compliant →  72.2% (58.9% after the greedy-card fix)
         fascists adapt more: blend →  no improvement (liberals 78.2%)
 liberals adapt: blind-crown hybrid →  fails (58.6%)
-liberals adapt again: crown-phase counters (A+B+comply) →  69.3%
+liberals adapt again: crown-phase counters (A+B+nomination-comply) →  69.3% (69.3 at 10k)
+liberals adapt once more: +unified voting →  75.9% (75.8 at 10k)
 ```
 
 **6. Why compliant hurts, and the counter that works.** Under `compliant` the
@@ -257,11 +259,55 @@ Three counters, all in the final grid:
   shared rational behavior, and punishing innocence is exactly the failure mode
   compliant exploits.
 
-Net effect of the counters on the 10k grid: worst case 58.9 → **69.3**, with
+Net effect of the counters on the 10k grid: worst case 58.9 → **75.8**, with
 every other cell *improving* 2–3 points (the cleaner channel helps everywhere).
 
+**7. Anatomy of the remaining losses — and the voting fix.** With the counters
+in, an autopsy of the ~31% of games `stats1-9g` still loses to `compliant`
+(5,000-game instrumentation) split them into two near-equal paths:
+
+- **Checkmate (~50%):** 84% of crown votes on Hitler are nominated by *liberal*
+  presidents as the consensus pick, median public P(Hitler) at crowning 0.053,
+  passing 5–0. The enactment channel cannot see groom (see Finding 6), and the
+  counters made him *more* groomable by making everything else more suspicious.
+- **Policy race (~50%):** final boards typically 6F/4L — the fascists win by one
+  policy in long games (12.9 elections vs 10.7 for liberal wins). The tempo
+  route, not the trap.
+
+The policy path had a mechanical cause the vote records exposed: fascist votes
+are decisive only in one direction. Liberals hold 4 of 6 seats and pass every
+government they like *individually* — but liberal votes were cast from each
+voter's **private** array, so borderline elections split 3–2 and fascist
+yes-votes (their only vote lever: they cannot block anything, 2 < 4) flipped
+1,195 of 26,700 elections. The fix mirrors nomination compliance: **all liberals
+cast the same vote computed from the public belief** (`LIB_VOTE_COMPLY`) — a
+4-vote block. Policy losses vs compliant dropped 450 → 255 (4k); checkmates
+were untouched (the crown vote was already 5–0). The gain is voting mechanics,
+not new evidence — and like every fix that removed liberal-side noise, it lifted
+every cell: worst case 69.3 → **75.9**.
+
+Two channels were *measured and rejected* on falsification grounds:
+
+- **Vote-record evidence** (roll-calls as Bayesian events): with the liberals'
+  likelihood set to the fascists' actual vote rule, liberals hit 99.8–100% —
+  a stacked-deck result (we wrote both sides). Against 20% vote noise the edge
+  falls to 83.7; at 40% it *inverts* (49.9 vs 78.2 ignoring votes). Enactment
+  evidence survives misspecification because deck physics cannot adapt; vote
+  evidence does not, because an adversary reshapes it at near-zero cost. The
+  channel stays off.
+- **Doctrine-mixture modeling (counter C)**: best worst case (66.8 vs 69.2 for
+  A+B+comply) but ~5 points worse vs `blend`; rejected on the trade-off.
+- Vote noise also has a smarter, targeted form than randomization: fascists
+  voted yes on 6,066 hopeless governments (their votes decisive only in 1,195
+  *passing* ones) — a "decisive-only" vote doctrine would keep the tempo and
+  gut the fingerprint. Untested; noted as the refined threat model.
+  (A final-config rerun with the vote channel accidentally left on confirmed
+  its raw power even without disguise: every Bayesian brain scored 99.6–100%,
+  including `stats1`, which has no public belief at all.)
+
 **Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 72.2%**
-before the greedy-card fix, 58.9% after it, **69.3% with the counters**. Both
+before the greedy-card fix, 58.9% after it, **75.8% through the full liberal
+response** (crown-phase counters + compliance on both channels; 10k grid). Both
 sides at their strongest; the escalation ladder keeps tilting back to the
 liberals because the channels they read are the channels fascists must use.
 
