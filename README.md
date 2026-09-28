@@ -73,7 +73,7 @@ switching between them moves every cell by ≤1.2 points (within noise).
 | `naive` | yes unless the seat ever enacted F; random powers | next player clockwise | crude blacklist only |
 | `stats1` | Bayesian, as above | argmax (deterministic) | enactments |
 | `stats2` | = stats1 | random top-2 argmax | enactments |
-| `stats1-9g` | = stats1 | argmax from private array | enactments **+ nomination-deviation (9:1)** |
+| `stats1-9g` | = stats1 | **public-consensus pick** (comply) | enactments **+ nomination-deviation (9:1)** + provably-not-Hitler + crown cap 0.10 at ≥3F |
 | `hybrid` | = stats1-9g | **blind rotation at ≥3F**, argmax below | enactments + nomination-deviation |
 
 **Fascist doctrines** (Hitler + the one fascist share it)
@@ -90,7 +90,10 @@ The nomination-deviation rule (`stats1-9g`'s addition): a **public belief**
 (conditioned on no one's seat, updated on public evidence) defines the
 group-consensus chancellor pick each election. A president nominating anything else
 is a deviation — evidence at 9:1 against their seat being liberal, folded into every
-liberal's private array. Compliance carries no update. The consensus is computable
+liberal's private array. Compliance carries no update. Liberal presidents comply
+too (it costs nothing measurable and drops innocent deviations ~30×), so in
+equilibrium the tell fires almost exclusively on fascists forced to route power
+at ≥3F — the channel only punishes those who *must* lie. The consensus is computable
 from public information only, so the rule is well-defined without communication.
 
 ## Results
@@ -101,34 +104,79 @@ executed, average elections and chaos events per game):
 
 | liberals \ fascists | greedy | strategic | groom | compliant | blend |
 |---|---|---|---|---|---|
-| naive | 64.2 | 66.9 | 69.8 | 69.8 | 69.8 |
-| stats1 | 75.3 | 69.1 | 64.2 | 64.2 | 64.2 |
-| **stats1-9g** | **95.2** | **93.6** | **93.0** | **72.2** | **78.2** |
-| hybrid | 62.9 | 61.1 | 58.6 | 58.6 | 58.6 |
-| stats2 | 67.4 | 60.6 | 58.4 | 58.4 | 58.4 |
+| naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
+| stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
+| **stats1-9g** | **96.6** | **96.3** | **95.3** | **69.3** | **83.2** |
+| hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
+| stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
+
+The `stats1-9g` row includes the three crown-phase counters (see Finding 6 and
+the calibration section below). Without them the row reads 95.2 / 93.6 / 93.0 /
+58.9 / 78.2 — the counters lift the worst case by +10.4 points at no cost to
+any other cell.
 
 Checkmate% and shot-Hitler% for the stats1-9g row (the diagnostic columns that
 explain the win rates):
 
 | fascists | checkmate% | shot H% |
 |---|---|---|
-| greedy | 4.0 | 17.8 |
-| strategic | 5.7 | 13.6 |
-| groom | 6.1 | 13.1 |
-| compliant | 25.4 | 4.7 |
-| blend | 20.1 | 8.5 |
+| greedy | 1.3 | 16.9 |
+| strategic | 2.7 | 13.8 |
+| groom | 3.6 | 13.3 |
+| compliant | 15.3 | 9.5 |
+| blend | 13.3 | 9.3 |
 
-(Naive/stats1/hybrid/stats2 rows against `compliant`/`blend` are identical to their
-`groom` rows: those brains have no public belief, so compliant/blend fascists fall
-back to groom behavior against them. `blend` differs from `groom` only in its
-nominations, since its fascist's deniability check is almost always true.)
+(Rows for the brains *without* a public belief follow a simple pattern: against
+`compliant` they equal their `greedy` row, and against `blend` their `groom` row.
+The compliant/blend nomination rule only activates when a public belief exists
+to compute a consensus from — against these brains the fascists fall back to
+greedy/groom routing, and blend's enactment timing is near-indistinguishable
+from groom's since its deniability check is almost always true.)
+
+### Calibrating the crown cap (why 0.10)
+
+The Hitler-cap at ≥3F (the checkmate zone) started life as a hand-pick: 0.25.
+Against `compliant` it does almost nothing — a groomed Hitler reaches the crown
+vote at a median public P(Hitler) of 0.074, far below any cap meant to catch the
+*suspicious*. Tightening the cap attacks the opposite end: when the chancellorship
+is a loaded gun, don't just avoid the suspicious — demand near-certainty. The
+parameter is `CROWN_CAP` in `sim.py`; sweeping it (4,000 games per cell, full
+data in `cap_sweep.txt`):
+
+| CROWN_CAP | compliant | greedy | groom | blend | strategic | worst case |
+|---|---|---|---|---|---|---|
+| 0.40 | 58.5 | 95.0 | 92.5 | 79.8 | 93.4 | 58.5 |
+| 0.25 (old default) | 58.7 | 95.0 | 92.6 | 79.8 | 93.5 | 58.7 |
+| 0.15 | 59.5 | 96.2 | 93.8 | 80.0 | 94.7 | 59.5 |
+| **0.10** | **62.8** | **96.8** | **94.5** | **81.6** | **95.4** | **62.8** |
+| 0.05 | 57.7 | 96.0 | 94.8 | 82.2 | 95.9 | 57.7 |
+| 0.02 | 52.3 | 94.5 | 94.1 | 79.9 | 95.1 | 52.3 |
+
+The curve peaks at 0.10 and falls off on **both** sides, for structural reasons:
+
+- **Too loose (0.40 → 0.25):** flat. Groomed Hitler at 0.074 passes any cap in
+  this range — the cap was calibrated to block seats at 0.25–0.40, and compliant
+  fascists simply stay under it.
+- **Too tight (0.05 → 0.02):** the cap blocks *liberals* too. At 0.02 almost no
+  candidate passes, governments fail, chaos enacts cards with no liberal
+  oversight, and the policy race collapses (52.3%).
+
+So 0.10 is not magic — it is the measured interior optimum of a two-sided
+trade-off. Its exact location could shift against a differently-groomed Hitler
+(the 0.10-vs-0.15 gap exceeds the ±1 point noise, but the true peak may sit
+anywhere in 0.07–0.15); the *existence* of an interior peak does not, since both
+failure modes are structural. Pairing the cap with an exact rule — a seat elected
+chancellor at ≥3F while the game continued is **provably not Hitler** (zero those
+worlds) — covers the cap's blind spot (records clean enough to fall under any
+threshold) and lifts the compliant cell further; see Findings 6.
 
 ## Findings
 
 **1. The nomination tell is the biggest single lever.** Fascist presidents must
 route power (partner, or Hitler at 3F) and almost never coincide with the public
-consensus — measured deviation rates: **~90% for fascist presidents vs ~5% for
-liberals**. That separation is nearly perfect signal. Adding the consensus-deviation
+consensus — measured deviation rates: **~90% for fascist presidents vs ~0.2% for
+liberals** (after liberal compliance; ~5–6% before it). That separation is nearly
+perfect signal. Adding the consensus-deviation
 rule took liberals from 64.2% → 93.0% against groom, and instrumented runs confirm
 the array pins both fascist seats from nominations alone, on top of enactment
 evidence. A hard label (one strike, permanent) performs no better than 9:1 soft
@@ -169,14 +217,53 @@ accumulates, and tempo beats stealth when stealth is already maxed.
 greedy fascists        →  liberals (stats1) win 75.3%
   fascists adapt: groom   →  stats1 falls to 64.2% (checkmate 31.4%)
     liberals adapt: +nomination tell →  93.0%
-      fascists adapt: compliant →  72.2%
+      fascists adapt: compliant →  72.2% (58.9% after the greedy-card fix)
         fascists adapt more: blend →  no improvement (liberals 78.2%)
 liberals adapt: blind-crown hybrid →  fails (58.6%)
+liberals adapt again: crown-phase counters (A+B+comply) →  69.3%
 ```
 
-**Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 72.2%.** Both
-sides at their strongest; liberals ahead on every axis (policy race, executions,
-checkmate denial).
+**6. Why compliant hurts, and the counter that works.** Under `compliant` the
+nomination tell only fires on innocent liberals (fascist deviation rate 0.0%),
+and compliant Hitler enacts F at 79% — almost exactly the liberal-baseline 73%
+the likelihood table expects from a mixed hand. The enactment channel fires but
+the evidence ratio is ~1.0: he is not more innocent than the model expects, he
+is *exactly as* innocent as the model expects. Median public P(Hitler) at
+crowning: 0.074; 98% of the crowns that killed the liberals were the model's own
+consensus pick, and 1,626 of 1,963 were nominated by *liberal* presidents. The
+strategy delivers Hitler to the checkmate itself.
+
+Three counters, all in the final grid:
+
+- **A — provably-not-Hitler (exact, no parameters).** A seat elected chancellor
+  at ≥3F whose game continued cannot be Hitler. Zero those worlds.
+- **B — crown cap 0.10 at ≥3F (calibrated, see above).** The cap alone is
+  gameable by a clean enough record; A is not, and together they cover each
+  other's blind spots.
+- **C — liberal compliance.** Liberal presidents *also* nominate the
+  public-consensus pick. This drops the innocent-deviation rate from ~6% to
+  ~0.2% against honest-signaling doctrines — so any future deviation event is
+  near-certain evidence of fascism, and the channel goes from 90:6 separation
+  to 91:0.2. It wins in every cell (+0.9 to +4.3 points), for a structural
+  reason: the president's private self-knowledge leaks into the public record
+  anyway when they deviate (with a 9:1 tax attached); complying prices the same
+  information into the *vote* instead, which carries no tax. A residual 1.9%
+  innocent-deviation rate against `compliant` traced to a spurious tell — when
+  the consensus pick itself exceeded the cap, no legitimate consensus existed,
+  so deviations are no longer counted against a consensus that wasn't legal to
+  follow. Fixing that lifted compliant a further point (68.1 → 69.2 at 4k).
+  The general lesson: an evidence rule needs a *doable* reference action —
+  comparing behavior against an impossible consensus manufactures signal out of
+  shared rational behavior, and punishing innocence is exactly the failure mode
+  compliant exploits.
+
+Net effect of the counters on the 10k grid: worst case 58.9 → **69.3**, with
+every other cell *improving* 2–3 points (the cleaner channel helps everywhere).
+
+**Best-vs-best (minimax cell): `stats1-9g` vs `compliant` — liberals 72.2%**
+before the greedy-card fix, 58.9% after it, **69.3% with the counters**. Both
+sides at their strongest; the escalation ladder keeps tilting back to the
+liberals because the channels they read are the channels fascists must use.
 
 ## Why the rule works (the information argument)
 
@@ -198,8 +285,8 @@ that incriminate them.
   blend was a step that direction and failed, but the true minimax fascist is
   unproven.
 - The ~90% fascist deviation rate is a property of the tested doctrines, not a law.
-  Real adversaries who know the rule can comply perfectly — at the measured cost of
-  tempo (27.8% win rate).
+  Real adversaries who know the rule can comply almost perfectly — at the measured
+  cost of tempo (fascist win rate 30.7% vs compliant in the final grid).
 - 6 players only. The board, Hitler-knowledge asymmetry, and posterior size
   (30 worlds) all change at other player counts.
 - Compute realism: 30-world posteriors × 6 players is a laptop's job, not a human's.

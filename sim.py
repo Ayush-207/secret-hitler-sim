@@ -32,6 +32,10 @@ DECK_F, DECK_L = 11, 6
 HYPS = [(h, f) for h in range(N) for f in range(N) if h != f]  # (hitler, fascist)
 NH = len(HYPS)
 EPS = 0.03  # likelihood smoothing floor/ceiling
+CROWN_CAP = 0.10  # Hitler-cap at >=3F (the checkmate zone); calibrated by the
+                  # sweep in cap_sweep.txt -- interior peak of a two-sided trade-off
+LIB_COMPLY = True   # liberal presidents also nominate the public-consensus pick
+                    # (measured better in every cell -- see cap_sweep.txt / README)
 
 
 def hand_probs(df, dl):
@@ -173,6 +177,15 @@ class Belief:
             self.w[idx] *= lk
         self._renorm()
 
+    def not_hitler(self, seat):
+        """Counter A: exact bookkeeping. A seat elected chancellor while the
+        board showed >=3F policies and the game continued cannot be Hitler
+        (that election would have been the checkmate). Zero those worlds."""
+        for idx, (h, f) in enumerate(HYPS):
+            if h == seat:
+                self.w[idx] = 0.0
+        self._renorm()
+
     def marginals(self):
         ph = [0.0] * N
         pf = [0.0] * N
@@ -197,7 +210,7 @@ def chan_enact(role, style, pair, board_f, deck):
     has_l = "L" in pair
     if role == "L":
         return "L" if has_l else "F"
-    if role == "H" and style != "greedy":          # clean Hitler
+    if role == "H" and style not in ("greedy", "compliant"):   # clean Hitler
         return "L" if has_l else "F"
     if role == "F" and style == "strategic":
         df, dl = deck
@@ -227,7 +240,7 @@ def pres_discard(role, style, hand, deck, board_f):
     hand = sorted(hand)
     nf = hand.count("F")
     greedy_like = role == "F" and (
-        style == "greedy"
+        style in ("greedy", "compliant")
         or (style == "strategic" and
             (deck[0] / (deck[0] + deck[1]) >= 0.5 or board_f >= 4))
     )
@@ -331,8 +344,10 @@ class Game:
     def consensus_pick(self, observer):
         """Group consensus: the argmax-chancellor from the PUBLIC belief —
         identical for every observer. Falls back to the observer's private
-        array only if no public belief exists (legacy variants)."""
-        if observer == self.pres:
+        array only if no public belief exists (legacy variants).
+        Note: with a public belief the president MAY query this (it is
+        computable from public information by anyone, including them)."""
+        if observer == self.pres and self.public is None:
             return None
         if self.public is not None:
             b, who = self.public, None
@@ -340,7 +355,7 @@ class Game:
             cands = self.eligible()
             if not cands:
                 cands = [i for i in self.alive_list() if i != self.pres]
-            cap = 0.40 if self.board_f < 3 else 0.25
+            cap = 0.40 if self.board_f < 3 else CROWN_CAP
             scored = sorted(cands, key=lambda c: b.p_pair_liberal(self.pres, c),
                             reverse=True)
             ok = [c for c in scored if ph[c] <= cap]
@@ -355,7 +370,7 @@ class Game:
             cands = [i for i in self.alive_list() if i != self.pres]
         b = self.beliefs[observer]
         ph, _ = b.marginals()
-        cap = 0.40 if self.board_f < 3 else 0.25
+        cap = 0.40 if self.board_f < 3 else CROWN_CAP
         scored = sorted(cands, key=lambda c: b.p_pair_liberal(observer, c),
                         reverse=True)
         ok = [c for c in scored if ph[c] <= cap]
@@ -404,9 +419,20 @@ class Game:
                 if j in cands:
                     return j
             return cands[0]
+        # LIB_COMPLY: liberal presidents also nominate the public-consensus pick
+        # (silences the deviation channel entirely -- no innocent deviations).
+        # Costs the president's self-knowledge: their private P(pair liberal)
+        # conditions on their own seat and beats the public belief's.
+        if LIB_COMPLY and self.public is not None:
+            consensus = self.consensus_pick(pres)
+            if consensus is not None:
+                ph_pub, _ = self.public.marginals()
+                pub_cap = 0.40 if self.board_f < 3 else CROWN_CAP
+                if ph_pub[consensus] <= pub_cap:  # cap still applies
+                    return consensus
         b = self.beliefs[pres]
         ph, _ = b.marginals()
-        cap = 0.40 if self.board_f < 3 else 0.25
+        cap = 0.40 if self.board_f < 3 else CROWN_CAP
         scored = sorted(cands, key=lambda c: b.p_pair_liberal(pres, c), reverse=True)
         ok = [c for c in scored if ph[c] <= cap]
         if not ok:
@@ -423,7 +449,7 @@ class Game:
             return pres not in self.f_actors and chan not in self.f_actors
         b = self.beliefs[voter]
         ph, pf = b.marginals()
-        cap = 0.40 if self.board_f < 3 else 0.25
+        cap = 0.40 if self.board_f < 3 else CROWN_CAP
         t = {0: 0.28, 1: 0.28, 2: 0.30, 3: 0.40}.get(self.board_f, 0.40)
         joint = b.p_pair_liberal(pres, chan)
         return joint >= t and ph[chan] <= cap
@@ -466,7 +492,7 @@ class Game:
         chan, pres = self.last_chan, self.last_pres
         cr, pr = self.role[chan], self.role[pres]
         # chancellor proposes
-        if cr == "L" or (cr == "H" and self.fas != "greedy"):
+        if cr == "L" or (cr == "H" and self.fas not in ("greedy", "compliant")):
             propose = "L" not in pair      # liberal: veto a forced 6th F (FF)
         elif cr == "F" and self.fas == "strategic":
             propose = "F" not in pair      # fascist: veto a forced L (LL)
@@ -486,12 +512,17 @@ class Game:
             chan = self.nominate()
 
             # nomination-consensus evidence: one group consensus from the public
-            # belief; the president either nominated it or deviated
+            # belief; the president either nominated it or deviated. Skip when
+            # the consensus pick itself exceeded the cap (cap fallback): there
+            # was no legitimate consensus to deviate from, and penalizing a
+            # president for ignoring an illegal consensus punishes innocence.
             if self.nom_strength:
                 obs = next((i for i in self.alive_list() if i != self.pres), None)
                 consensus = self.consensus_pick(obs) if obs is not None else None
                 if consensus is not None:
-                    deviated = (chan != consensus)
+                    ph_pub, _ = self.public.marginals()
+                    leg_cap = 0.40 if self.board_f < 3 else CROWN_CAP
+                    deviated = (chan != consensus) and ph_pub[consensus] <= leg_cap
                     if deviated:
                         # public event: every liberal folds it into their own
                         # posterior (and the public array stays current)
@@ -512,6 +543,14 @@ class Game:
                 if self.role[chan] == "H" and self.board_f >= 3:
                     self.checkmate = True
                     return "F"
+                # counter A: this government passed at >=3F with a non-Hitler
+                # chancellor (else the checkmate fired above) -> exact update
+                if self.board_f >= 3:
+                    for i in range(N):
+                        if self.role[i] == "L":
+                            self.beliefs[i].not_hitler(chan)
+                    if self.public is not None:
+                        self.public.not_hitler(chan)
                 self.resolve_government(chan)
                 if self.winner:
                     return self.winner

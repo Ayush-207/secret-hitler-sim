@@ -251,6 +251,11 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 9 | Stop reading the true draw pile | players can't see it | <1.5 point change |
 | 10 | Track the draw pile separately in each world | the discards are secret but role-dependent | pile error 0.60 → 0.48 cards; ≤1.2 points |
 | 11 | Fix reversed veto conditions | liberals were vetoing LL and enacting the losing 6th F | +0.7 to +3.8 points |
+| 12 | `compliant` fascists play greedy cards too | the doc described the old mix; greedy cards are the stronger doctrine | stats1-9g vs compliant: 72.2 → **58.9** |
+| 13 | Counter A: provably-not-Hitler | chancellor at ≥3F + game continued = not Hitler; zero those worlds (exact, no parameters) | 58.1 → 60.2 vs compliant (4k prototypes) |
+| 14 | Counter B: crown cap 0.25 → 0.10 at ≥3F | demand near-certainty when the crown is a weapon | 58.1 → 63.3; A+B: 64.9 |
+| 15 | Liberal presidents comply too | innocent deviations (6%) were the only ones compliant produced; remove them | 63.8 → 68.1 vs compliant; every cell gains |
+| 16 | Ignore deviations from an illegal consensus | when the consensus pick exceeded the cap there was nothing to deviate from; penalizing it punished innocence | 68.1 → 69.2 vs compliant |
 
 Step 10 needs one extra idea. The draw pile loses exactly the 3 cards drawn, whatever gets discarded. Inside a world the roles are known, so that world can work out how many F each hand probably held:
 
@@ -273,21 +278,40 @@ This is the liberal win rate in %, over 10,000 games per cell. `stats1-9g` is th
 
 | Liberals \ Fascists | greedy | strategic | groom | compliant | blend |
 | --- | --- | --- | --- | --- | --- |
-| naive | 64.2 | 66.9 | 69.8 | 69.8 | 69.8 |
-| stats1 | 75.3 | 69.1 | 64.2 | 64.2 | 64.2 |
-| **stats1-9g** | **95.2** | **93.6** | **93.0** | **72.2** | **78.2** |
-| hybrid | 62.9 | 61.1 | 58.6 | 58.6 | 58.6 |
-| stats2 | 67.4 | 60.6 | 58.4 | 58.4 | 58.4 |
+| naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
+| stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
+| **stats1-9g** | **96.6** | **96.3** | **95.3** | **69.3** | **83.2** |
+| hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
+| stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
 
-- **Best against best:** `stats1-9g` vs `compliant`, liberals **72.2%**.
-- **Enactment evidence alone loses to groom.** `stats1` does worse than `naive` there (64.2 vs 69.8).
-- **The nomination tell fixes groom.** Checkmates drop from 31% to 6%.
-- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 72% of games.
+- **Best against best:** `stats1-9g` vs `compliant`, liberals **69.3%** — 58.9% before the crown-phase counters (A, B, liberal compliance, spurious-tell fix).
+- **Enactment evidence alone loses to groom.** `stats1` does worse than `naive` there (66.1 vs 69.8).
+- **The nomination tell fixes groom.** Checkmates drop from 31% to 3.6%.
+- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 69.3% of games.
+
+### Why the crown cap is 0.10 (calibration, not magic)
+
+The cap at ≥3F was hand-picked as 0.25. Against `compliant` it is inert: a groomed
+Hitler reaches the crown vote at median public P(Hitler) 0.074, so no cap in the
+0.25–0.40 range stops him. Sweeping the cap (`CROWN_CAP` in `sim.py`, full table in
+`cap_sweep.txt`) finds an interior peak — measured before the comply counter was
+added, so the absolute numbers are stale, but the shape of the trade-off is what
+matters:
+
+| CROWN_CAP | 0.40 | 0.25 | 0.15 | **0.10** | 0.05 | 0.02 |
+| --- | --- | --- | --- | --- | --- | --- |
+| vs compliant | 58.5 | 58.7 | 59.5 | **62.8** | 57.7 | 52.3 |
+| worst case | 58.5 | 58.7 | 59.5 | **62.8** | 57.7 | 52.3 |
+
+Both tails are structural. Too loose: the groomed Hitler passes any such cap. Too
+tight: the cap blocks liberal chancellors too, governments fail, chaos takes over.
+0.10 is the measured optimum of that trade-off, not a chosen constant; its exact
+location may move with a differently-groomed Hitler, but the interior peak does not.
 
 ## Limits
 
 - The fascist strategies are hand-written rules, not an optimal opponent. A fascist tuned against the exact likelihood tables could do better.
 - The liberal model assumes fascists push F when they can. Against other styles its numbers are a little off, which is why every likelihood is clamped.
-- Votes are public in the real game, but the model doesn't use them yet.
+- Votes are public in the real game, but the model doesn't use them yet. Early measurement: fascist votes split 100/0 by government composition, liberal votes 94/28 — likely the second-biggest untapped channel. Veto proposals/acceptances and the *targeting choices* of liberal executive powers are also unmodeled.
 - It covers 6 players only. Other player counts change the board and who knows whom.
 - 30 worlds × 6 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.
