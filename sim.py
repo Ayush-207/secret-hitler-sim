@@ -64,6 +64,13 @@ VOTE_LK = 0.0       # vote-record evidence: OFF by default -- measured stacked-d
                     # noise (40% noise -> worse than ignoring votes). See README F7.
 LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (a block)
                         # (measured better on the worst case by +6.7 pts -- see README)
+SE_TELL = False     # special-election evidence: measured NEUTRAL at 9p (38.3 vs
+                    # 39.5 compliant, 66.1 vs 65.0 blend -- within noise), kept
+                    # off. The channel is real (fascist presidents special-elect
+                    # Hitler 86% vs 9.6% liberal) but compliant fascists can
+                    # silence it the same way as nominations, and the consensus
+                    # SE pick gives away the presidency half the time, which
+                    # costs more than the tell gains. Code retained.
 
 # ---------------- calibrated gates as RATIOS, not absolutes ----------------
 # 6p game-start priors (measured from the belief objects in Game.__init__):
@@ -289,6 +296,11 @@ class Belief:
             for f in fs:
                 pf[f] += w
         return ph, pf
+
+    def p_liberal(self, a):
+        """P(seat a is liberal): 1 minus the bad marginal."""
+        _, pf = self.marginals()
+        return 1.0 - pf[a]
 
     def p_pair_liberal(self, a, b):
         s = 0.0
@@ -605,6 +617,14 @@ class Game:
 
     def special_elect(self, pres):
         if self.role[pres] in ("F", "H"):
+            # compliant/blend doctrine: special-elect the public consensus pick
+            # to avoid the SE deviation tell (mirrors the nomination doctrine).
+            # Gated on SE_TELL: without the tell there is nothing to hide from,
+            # and the compliance play itself perturbs the calibrated 6p path.
+            if SE_TELL and self.fas in ("compliant", "blend") and self.public is not None:
+                consensus = self.consensus_pick_se(pres)
+                if consensus is not None:
+                    return consensus
             if self.hitler in self.alive_list() and self.hitler != pres:
                 return self.hitler
             for i in self.alive_list():
@@ -613,9 +633,36 @@ class Game:
             return self.next_alive(pres)
         if self.lib == "naive":
             return self.next_alive(pres)
+        # LIB_COMPLY: liberal presidents also special-elect the consensus pick
+        # (silences the innocent-deviation channel, same reason as nominations)
+        # Gated on SE_TELL like the fascist side (one flag owns the channel).
+        if SE_TELL and LIB_COMPLY and self.public is not None:
+            consensus = self.consensus_pick_se(pres)
+            if consensus is not None:
+                ph_pub, _ = self.public.marginals()
+                if ph_pub[consensus] <= self.cap(public=True):
+                    return consensus
         b = self.beliefs[pres]
         pool = [i for i in self.alive_list() if i != pres]
         return max(pool, key=lambda i: (b.p_pair_liberal(pres, i), self.rng.random()))
+
+    def consensus_pick_se(self, pres):
+        """Consensus pick for the special-election channel: the public belief's
+        best next-president. Distinct from consensus_pick() because the pairwise
+        score differs (the pick becomes president, not chancellor)."""
+        if self.public is None:
+            return None
+        ph, _ = self.public.marginals()
+        cands = [i for i in self.alive_list() if i != pres]
+        if not cands:
+            return None
+        cap = self.cap(public=True)
+        scored = sorted(cands, key=lambda c: self.public.p_liberal(c),
+                        reverse=True)
+        ok = [c for c in scored if ph[c] <= cap]
+        if not ok:
+            ok = sorted(cands, key=lambda c: ph[c])
+        return ok[0]
 
     def execution_target(self, pres):
         pool = [i for i in self.alive_list() if i != pres]
@@ -801,7 +848,22 @@ class Game:
             if self.role[pres] == "L":
                 self.beliefs[pres].observe_party(t, t in self.fascists)
         elif power == "pe":                      # special election
-            self.pres = self.special_elect(pres)
+            pick = self.special_elect(pres)
+            # SE deviation tell: the same logic as the nomination tell, on the
+            # special-election pick (the pick becomes president publicly).
+            # Skipped when the consensus pick itself exceeded the cap -- no
+            # doable reference action (the row-16 lesson).
+            if SE_TELL and self.nom_strength:
+                consensus = self.consensus_pick_se(pres)
+                if consensus is not None:
+                    ph_pub, _ = self.public.marginals()
+                    if ph_pub[consensus] <= self.cap(public=True) and pick != consensus:
+                        for i in range(self.n):
+                            if self.role[i] == "L":
+                                self.beliefs[i].update_nomination(
+                                    pres, True, self.nom_strength)
+                        self.public.update_nomination(pres, True, self.nom_strength)
+            self.pres = pick
             self.pres_override = True
         elif power == "ex":                      # execution
             t = self.execution_target(pres)

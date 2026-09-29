@@ -425,6 +425,40 @@ thresholds; 10k grid). Both sides at their strongest; the escalation ladder
 keeps tilting back to the liberals because the channels they read are the
 channels fascists must use.
 
+**8. Why the edge collapses at high counts: the pair-score scale compresses.**
+A targeted autopsy of 9p (the worst count) answered the scaling question at
+the mechanism level. Three measurements:
+
+- *The belief still ranks correctly.* The public pair score at vote time,
+  split by the government's TRUE composition (1,000 games): both-liberal
+  median 0.380, mixed 0.346, both-bad 0.296 — right ordering, no bias.
+- *But the contrast halves.* The clean-minus-mixed gap is 0.082 at 6p
+  (0.540 vs 0.458) and only 0.034 at 9p (0.380 vs 0.346); the IQRs of the
+  three classes nearly coincide at 9p ([0.311–0.485] vs [0.278–0.416] vs
+  [0.278–0.363]). With 4 bad seats among 9, a clean pair's probability mass
+  spreads across many possible bad-sets, so every pair — clean or not —
+  scores near the prior.
+- *The vote gate lives on this scale, and a threshold on a compressed scale
+  fails both ways.* Raise it → no government passes → chaos deadlock (the
+  measured 0.40-flat tail). Lower it → mixed governments pass at near-prior
+  rates, and at 9p passed governments look almost like random pairs (55%
+  mixed, vs 56% under a random draw). The deck's 70% F-density then enacts
+  F through those pairs at 73–94%.
+
+The passage 6p → 9p is therefore not a modeling failure but a
+**screening-capacity collapse**: the evidence channels fire, rank correctly,
+and still cannot separate clean from mixed governments, because the prior
+itself barely separates them. This also explains why the compliant tempo wall
+(58% policy losses) has no liberal counter found so far — the race is lost in
+the vote stage, where the information to win it no longer exists. Two tests
+bracket the finding: the special-election channel (the one unused observable,
+measured: fascist presidents special-elect Hitler 86% vs 9.6% for liberals at
+9p) was implemented and gained *nothing* vs compliant (38.3 vs 39.5) — because
+compliant fascism silences it exactly like nominations, at a price it can
+afford. And the tempo audit shows liberals passing 2.64 all-liberal
+governments/game but 4.01 mixed ones: even a *perfect* pair-screener at 9p
+would face mixed governments being the statistical norm, not the exception.
+
 ## Why the rule works (the information argument)
 
 If fascist behavior exactly matched liberal behavior, no observer could distinguish

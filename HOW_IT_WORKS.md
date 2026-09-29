@@ -275,6 +275,14 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 18 | Calibrate the vote thresholds (`VOTE_T` = 0.32 flat) | swept like the crown cap; the hand-picked 0.28 sat at a plateau's edge; 0.40 flat reproduces the original deadlock as a measured tail (15.6%) | +2.0 worst case; final grid 76.3 vs compliant |
 | 19 | Generalize 6p → 5–10 players | official setup/deck/power tables; worlds become (Hitler, fascist-set): 30 → 840 | every cell ≥ 6p grid at every count tested; see README scaling table |
 | 20 | Re-sweep the gate ratios at 9–10p | test the transfer hypothesis; only the crown cap moved — it flips direction with the tempo/checkmate balance (looser = better when tempo dominates) | worst case +3 to +5.7 at 7–10p; 6p regression still exact (25/25 rows) |
+| 21 | Special-election evidence channel (measured, kept OFF) | the one unused observable: fascist presidents special-elect Hitler 86% vs 9.6% for liberals at 9p. Implemented with the full nomination-tell machinery (consensus reference, doable-action guard, liberal compliance) | neutral vs compliant at 9p (38.3 vs 39.5) and slightly negative at 6p (−0.4 to −0.9): compliant fascism silences it like nominations, at a price it can afford. `SE_TELL = False`, code retained |
+
+**The row-21 autopsy matters more than the flag.** It prompted the 9p deep
+dive (README Finding 8): the pair-score scale *compresses* at high counts —
+clean and mixed governments score 0.380 vs 0.346 at vote time (IQRs nearly
+coinciding), vs 0.540 vs 0.458 at 6p. The belief ranks correctly but has
+almost no contrast to rank with, so no gate value can screen — and the tempo
+race is lost at the vote stage, where the information no longer exists.
 
 **The row-19 scaling lesson: gates are prior-dependent, and the regression
 catches what review doesn't.** Two findings from generalizing. First, the 6p
@@ -307,4 +315,9 @@ their own constants.
   sweep at 9p); the crown-cap ratio was re-swept at 9–10p and moves to 0.80 for
   all multi-fascist counts (row 20). The 7p cap sweep was not run — 7–8p
   inherit the 9–10p value.
+- The special-election evidence channel is implemented but off (`SE_TELL`,
+  row 21): measured neutral — the raw signal is real (86% vs 9.6%) but
+  compliant fascism silences it cheaply. The pair-score compression finding
+  (README Finding 8) explains why no evidence channel fixes the high-count
+  tempo wall.
 - 840 worlds × 10 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.
