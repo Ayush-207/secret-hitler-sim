@@ -1,8 +1,12 @@
-# Beating Secret Hitler with Statistics
+# Beating Secret Hitler with Statistics — the code
+
+Companion to the [README](README.md), which carries the results, the strategy
+matchup tables, and the findings. This doc is the code: what each component
+does, why it is built that way, and how the implementation evolved.
 
 ## The question
 
-Can liberals win Secret Hitler more often by ignoring everything players *say* and reading only what they *do*? In a simulated 6-player game (4 liberals, 1 fascist, 1 Hitler), yes: the best statistical liberals win **72–95%** of games against every fascist strategy tested. Liberals who don't reason at all win 64–70%.
+Can liberals win Secret Hitler more often by ignoring everything players *say* and reading only what they *do*? In a simulated 6-player game (4 liberals, 1 fascist, 1 Hitler), yes: the best statistical liberals win **76–97%** of games against every fascist strategy tested (full grid in the README). Liberals who don't reason at all win 64–70%.
 
 The whole simulation is one Python file ([`sim.py`](sim.py), standard library only). Every snippet below comes from it, trimmed for reading.
 
@@ -234,9 +238,9 @@ A real traced game: seat 3 = Hitler, seat 4 = fascist, and we follow liberal sea
 
 Elections 3–4 show why the evidence is soft: an innocent player gets blamed for a bad draw, then clears themselves.
 
-## How the model evolved
+## What changed the scores: the evolution table
 
-Each step answered a weakness the step before exposed. Win rates are the ones measured at the time.
+Each step answered a weakness the step before exposed. Win rates are the ones measured at the time; the full narrative and final grid live in the README.
 
 | # | Change | Why | Result |
 | --- | --- | --- | --- |
@@ -257,57 +261,15 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 15 | Liberal presidents comply too | innocent deviations (6%) were the only ones compliant produced; remove them | 63.8 → 68.1 vs compliant; every cell gains |
 | 16 | Ignore deviations from an illegal consensus | when the consensus pick exceeded the cap there was nothing to deviate from; penalizing it punished innocence | 68.1 → 69.2 vs compliant |
 | 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **76.3** (10k, with calibrated thresholds); policy losses 450 → 255 |
+| 18 | Calibrate the vote thresholds (`VOTE_T` = 0.32 flat) | swept like the crown cap; the hand-picked 0.28 sat at a plateau's edge; 0.40 flat reproduces the original deadlock as a measured tail (15.6%) | +2.0 worst case; final grid 76.3 vs compliant |
 
-Step 10 needs one extra idea. The draw pile loses exactly the 3 cards drawn, whatever gets discarded. Inside a world the roles are known, so that world can work out how many F each hand probably held:
-
-```python
-# thresh = F needed in hand before this government enacts F:
-#          3 if both liberal, 2 if mixed, 1 if both fascist (in this world)
-for f, q in enumerate(prev):             # P(pile holds f F cards) = q
-    for k in range(4):                   # hand held k F
-        pk = comb(f, k) * comb(n - f, 3 - k) / comb(n, 3)
-        pc = 0.97 if (k >= thresh) == enacted_f else 0.03
-        new[f - k] += q * pk * pc        # this world's pile, next round
-        tot += q * pk * pc               # this world's likelihood
-```
-
-The pile estimate resets to the exact value at every reshuffle, because the new pile is every card not on the board.
-
-## Results
-
-This is the liberal win rate in %, over 10,000 games per cell. `stats1-9g` is the Bayesian liberal plus the nomination tell at 9:1.
-
-| Liberals \ Fascists | greedy | strategic | groom | compliant | blend |
-| --- | --- | --- | --- | --- | --- |
-| naive | 64.2 | 66.9 | 69.8 | 64.2 | 69.8 |
-| stats1 | 75.2 | 69.5 | 66.1 | 75.2 | 66.1 |
-| **stats1-9g** | **97.0** | **96.8** | **96.3** | **76.3** | **87.1** |
-| hybrid | 58.6 | 59.8 | 60.1 | 58.6 | 60.1 |
-| stats2 | 73.1 | 68.8 | 63.5 | 73.1 | 63.5 |
-
-- **Best against best:** `stats1-9g` vs `compliant`, liberals **76.3%** — 58.9% before the liberal response (crown-phase counters A+B, nomination compliance, unified voting, calibrated vote thresholds).
-- **Enactment evidence alone loses to groom.** `stats1` does worse than `naive` there (66.1 vs 69.8).
-- **The nomination tell fixes groom.** Checkmates drop from 31% to 2.9%.
-- **Compliance is the best fascist answer,** but it costs tempo: fascist presidents stop steering power, so fascists still lose 76.3% of games.
-
-### Why the crown cap is 0.10 (calibration, not magic)
-
-The cap at ≥3F was hand-picked as 0.25. Against `compliant` it is inert: a groomed
-Hitler reaches the crown vote at median public P(Hitler) 0.074, so no cap in the
-0.25–0.40 range stops him. Sweeping the cap (`CROWN_CAP` in `sim.py`, full table in
-`cap_sweep.txt`) finds an interior peak — measured before the comply counter was
-added, so the absolute numbers are stale, but the shape of the trade-off is what
-matters:
-
-| CROWN_CAP | 0.40 | 0.25 | 0.15 | **0.10** | 0.05 | 0.02 |
-| --- | --- | --- | --- | --- | --- | --- |
-| vs compliant | 58.5 | 58.7 | 59.5 | **62.8** | 57.7 | 52.3 |
-| worst case | 58.5 | 58.7 | 59.5 | **62.8** | 57.7 | 52.3 |
-
-Both tails are structural. Too loose: the groomed Hitler passes any such cap. Too
-tight: the cap blocks liberal chancellors too, governments fail, chaos takes over.
-0.10 is the measured optimum of that trade-off, not a chosen constant; its exact
-location may move with a differently-groomed Hitler, but the interior peak does not.
+A calibration lesson from row 18 that cost a full grid rerun to find: **a
+threshold calibrated on one belief architecture does not transfer to another.**
+The 0.32 was measured on the unified public-belief vote path. Brains voting on
+*private* arrays (stats1/stats2/hybrid) score pairs lower — self-knowledge
+zeroing removes worlds and drags the pair score down to ~0.30 at game start —
+so 0.32 deadlocked them (16% wins, 8.65 chaos/game). The two vote paths keep
+their own constants.
 
 ## Limits
 

@@ -10,6 +10,10 @@ every fascist doctrine tested, including ones designed with full knowledge of th
 liberal model. The single biggest lever is reading **nomination behavior**.
 
 Code walkthrough (how each component works, how the model evolved): [HOW_IT_WORKS.md](HOW_IT_WORKS.md).
+This README is the results doc — strategies, matchup tables, findings,
+calibration curves, caveats. HOW_IT_WORKS is the code doc — the belief class,
+the likelihood tables, the update loop, a traced game, and the implementation
+history.
 
 ## Usage
 
