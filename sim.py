@@ -82,9 +82,14 @@ LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (a block)
 #   calibrated separately -- a threshold does not transfer across architectures)
 #   private vote gate >=3F = 1.4286 x the <3F gate (6p: 0.40)
 # The ratios are the null hypothesis that the 6p calibration transfers as
-# SHAPE, not as numbers. Re-sweeping per count would refine them.
+# SHAPE, not as numbers. Per-count sweeps (cap_sweep_9p.txt, cap_sweep_10p.txt)
+# confirmed all but one: the crown cap over-tightens at >=7p, where the tempo
+# race dominates and checkmate is rare -- a looser cap (0.80 of the Hitler
+# prior, swept interior peak 0.80) gains +5-6 pts vs compliant at 9-10p. The
+# cap scales with the count's fascist count; 6p keeps its own swept 0.60.
 VOTE_R, VOTE_T3_R = 0.80, 1.25
 CAP_PUB_R = {0: 2.40, 3: 0.60}      # x public Hitler prior (1/n)
+CAP_PUB_R_MULTI = 0.80              # crown cap ratio at >=2 fascists (7p+)
 CAP_PRIV_R = {0: 2.00, 3: 0.50}     # x private Hitler prior (1/(n-1))
 PRIV_VOTE_R, PRIV_VOTE_T3_R = 0.28 / 0.30, 0.40 / 0.28
 EPS = 0.03  # likelihood smoothing floor/ceiling
@@ -392,7 +397,12 @@ class Game:
         self.ph_priv0 = _ph[1] if self.n > 2 else 0.0  # P(seat 1 Hitler | 0 lib)
         self.vote_t0 = VOTE_R * self.pair_pub0
         self.vote_t3 = VOTE_T3_R * self.vote_t0
-        self.cap_pub = {b: r * self.ph_pub0 for b, r in CAP_PUB_R.items()}
+        # crown cap: 6p keeps its own swept ratio; at >=2 fascists the tempo
+        # race dominates and the checkmate-defense cap over-tightens (swept
+        # per count: cap_sweep_9p.txt / cap_sweep_10p.txt -- interior peak 0.80)
+        crown_r = CAP_PUB_R[3] if nf == 1 else CAP_PUB_R_MULTI
+        self.cap_pub = {0: CAP_PUB_R[0] * self.ph_pub0,
+                        3: crown_r * self.ph_pub0}
         self.cap_priv = {b: r * self.ph_priv0 for b, r in CAP_PRIV_R.items()}
         self.priv_t0 = PRIV_VOTE_R * self.pair_priv0
         self.priv_t3 = PRIV_VOTE_T3_R * self.priv_t0

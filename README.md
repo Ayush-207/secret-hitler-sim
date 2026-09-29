@@ -164,15 +164,15 @@ keep the calibration honest:
   it, which is exactly what the regression is for.
 
 `stats1-9g` win rate per player count (games/cell: 10k at 6p, 2k at 7–8p, 1k
-at 9–10p):
+at 9–10p; all with the per-count recalibrated crown cap, see below):
 
 | liberals \ fascists | greedy | strategic | groom | compliant | blend |
 |---|---|---|---|---|---|
 | **6p** | **97.0** | **96.8** | **96.3** | **76.3** | **87.1** |
-| 7p | 91.2 | 91.3 | 89.8 | 48.1 | 75.8 |
-| 8p | 92.9 | 93.5 | 93.5 | 60.4 | 82.3 |
-| 9p | 80.3 | 81.4 | 79.0 | 34.3 | 62.9 |
-| 10p | 77.9 | 79.5 | 77.5 | 35.1 | 68.2 |
+| 7p | 90.6 | 92.0 | 92.3 | 53.0 | 75.3 |
+| 8p | 95.2 | 94.5 | 93.0 | 63.4 | 83.0 |
+| 9p | 84.6 | 82.8 | 83.5 | 39.5 | 65.0 |
+| 10p | 86.1 | 83.0 | 84.3 | 40.8 | 71.6 |
 | naive @ greedy | 64.2 | 38.6 | 48.4 | 25.5 | 23.8 |
 
 (last row = the naive baseline vs greedy, for scale.)
@@ -180,14 +180,14 @@ at 9–10p):
 **Reading the table.**
 
 - The statistical advantage *survives scaling*: stats1-9g beats naive by
-  +27 to +33 points at every count, on the same decks.
-- **7p is the hardest count** (compliant 48.1): a second fascist arrives while
-  liberals are still only 4 — the fascist seats are harder to separate (bad-rate
+  +26 to +47 points at every count, on the same decks.
+- **7p is the hardest count** (compliant 53.0): a second fascist arrives while
+  liberals are still only 4 — the bad seats are harder to separate (bad-rate
   prior 0.50) and the board's checkmate zone is easier to reach.
-- 8p recovers (60.4) with the fifth liberal; 9p drops hard (34.3) with the third.
+- 8p recovers (63.4) with the fifth liberal; 9p drops hard (39.5) with the third.
 - **Compliant fascism is the count-scaling killer.** Against every open doctrine
-  (greedy/strategic/groom) the edge decays gently (97 → 78); against compliant
-  it collapses (76 → 35, near the naive baseline). The anatomy is pure tempo,
+  (greedy/strategic/groom) the edge decays gently (97 → 84); against compliant
+  it collapses (76 → 40, near the naive baseline). The anatomy is pure tempo,
   not signal: deviation tells fire **zero** times against compliant at 6p *and*
   7p — the tell is already fully silenced at 6p — but the liberal win condition
   is fixed at 5 L enacted while the deck's L-count is fixed at 6 cards and the
@@ -195,11 +195,26 @@ at 9–10p):
   0.755 (7–8p) → 0.798 (9p) → 0.816 (10p), and policy losses (liberals stalled
   at ≤4 L, fascists hitting 6F) grow from 9% of games at 6p to **58% at 9p and
   54% at 10p**. The fascists stop needing to hide; the deck hides them.
-- Checkmate losses stay flat the whole way (14.8% at 6p, 10.0% at 9p vs
-  compliant) — the crown-phase counters scale; the tempo race does not.
-- The gates-as-ratios hypothesis (transfer as shape) was never re-swept per
-  count: the counts here may understate what a per-count recalibration would
-  give, especially at 9–10p. Open item.
+
+**Per-count recalibration: the crown cap is the one gate that doesn't transfer.**
+Sweeping the ratio-encoded gates at 9p (full data in `cap_sweep_9p.txt` /
+`vote_sweep_9p.txt` / `combo_9p.txt`):
+
+- The **vote gate transfers**: flat within noise across 0.60–1.00 of the pair
+  prior at 9p — the 6p ratio is already right.
+- The **crown cap does not** — and it flips *direction*: the 6p-optimal 0.60
+  over-tightens at 9–10p. Loosening it to 0.80 of the Hitler prior gains
+  +5.9 vs compliant and +5.4 vs greedy at 9p (interior peak; confirmed at 10p:
+  35.1 → 40.8, 77.9 → 86.1). The mechanism is the loss anatomy above: at 9p
+  only 10% of games die by checkmate but 58% die by tempo — a tight crown cap
+  blocks legitimate governments at 3F, feeds chaos, and loses the race it was
+  meant to be protecting. The recalibrated grids above use cap ratio 0.80 for
+  every count with ≥2 fascists (6p keeps its own swept 0.60; the full 10k 6p
+  regression still matches the pre-parameterization results exactly, 25/25
+  rows). The price is visible and worth paying: checkmate% rises ~8–10 points
+  at 7–10p, but tempo wins exceed it everywhere except 7p (where the trade is
+  roughly even — and 7p compliant is also the cell where the cap-sweep verdict
+  was closest, 48.1 vs 53.0, the noisiest call in the table).
 
 ### Calibrating the crown cap (why 0.10)
 
@@ -433,10 +448,11 @@ that incriminate them.
   Real adversaries who know the rule can comply almost perfectly — at the measured
   cost of tempo (fascist win rate 30.7% vs compliant in the final grid).
 - 5–10 players, 6p as the reference calibration. Other counts use the official
-  role/deck tables with gates re-derived as ratios to each count's own priors
-  (never re-swept per count — see the scaling section); the board, Hitler-
-  knowledge asymmetry and posterior size (30 worlds at 6p, 840 at 10p) all
-  change with the count.
+  role/deck tables with gates re-derived as ratios to each count's own priors;
+  the crown-cap ratio was re-swept at 9–10p (0.80, see the scaling section) and
+  the vote-gate ratio confirmed transferable. The board, Hitler-knowledge
+  asymmetry and posterior size (30 worlds at 6p, 840 at 10p) all change with
+  the count. The 7p crown-cap sweep was not run (7–8p inherit the 9–10p value).
 - Compute realism: 30-world posteriors × 6 players is a laptop's job, not a human's.
   At a real table this is a bounded approximation (6 trust axes) at best.
 - Each world's deck estimate assumes greedy-ish fascists (the same assumption as the

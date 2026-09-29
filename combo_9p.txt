@@ -1,0 +1,6 @@
+9p combined (stats1-9g, 1000 games/cell, seed 1234)
+ VOTE_R  CAP_R  compliant   greedy   blend
+    0.8    0.6      34.3    80.3    62.9
+    0.8    0.8      39.5    84.6    65.0
+    1.0    0.6      33.1    82.2    66.2
+    1.0    0.8      36.3    85.4    67.9

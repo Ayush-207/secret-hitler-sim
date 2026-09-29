@@ -1,0 +1,7 @@
+9p vote-ratio sweep (stats1-9g, 1500 games/cell, seed 1234)
+ VOTE_R  compliant   greedy   blend
+    0.6      31.7    78.9    63.6
+    0.7      29.9    78.8    64.3
+    0.8      33.4    79.7    64.1
+    0.9      32.0    81.9    63.1
+    1.0      34.3    81.0    65.3

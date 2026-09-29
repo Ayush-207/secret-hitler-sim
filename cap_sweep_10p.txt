@@ -1,0 +1,5 @@
+10p crown-cap-ratio sweep (stats1-9g, 1000 games/cell, seed 1234)
+CAP_PUB_R[3]  compliant   greedy   blend
+         0.6      35.1    77.9    68.2
+         0.8      40.8    86.1    71.6
+         1.0      43.2    83.8    71.2

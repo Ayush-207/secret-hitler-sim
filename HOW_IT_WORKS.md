@@ -274,6 +274,7 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **76.3** (10k, with calibrated thresholds); policy losses 450 → 255 |
 | 18 | Calibrate the vote thresholds (`VOTE_T` = 0.32 flat) | swept like the crown cap; the hand-picked 0.28 sat at a plateau's edge; 0.40 flat reproduces the original deadlock as a measured tail (15.6%) | +2.0 worst case; final grid 76.3 vs compliant |
 | 19 | Generalize 6p → 5–10 players | official setup/deck/power tables; worlds become (Hitler, fascist-set): 30 → 840 | every cell ≥ 6p grid at every count tested; see README scaling table |
+| 20 | Re-sweep the gate ratios at 9–10p | test the transfer hypothesis; only the crown cap moved — it flips direction with the tempo/checkmate balance (looser = better when tempo dominates) | worst case +3 to +5.7 at 7–10p; 6p regression still exact (25/25 rows) |
 
 **The row-19 scaling lesson: gates are prior-dependent, and the regression
 catches what review doesn't.** Two findings from generalizing. First, the 6p
@@ -301,8 +302,9 @@ their own constants.
 - The fascist strategies are hand-written rules, not an optimal opponent. A fascist tuned against the exact likelihood tables could do better.
 - The liberal model assumes fascists push F when they can. Against other styles its numbers are a little off, which is why every likelihood is clamped.
 - Votes are public in the real game. As *evidence* they were measured and rejected: encoding the fascists' vote rule into the likelihood hit 99.8% (stacked deck — we wrote both sides), but 20% fascist vote noise drops it to 83.7 and 40% inverts it to 49.9 (worse than ignoring votes). As *mechanics* they matter: unified public-belief voting (row 17) is worth +6.7 on the worst case. Veto proposals/acceptances and the *targeting choices* of liberal executive powers are also unmodeled.
-- Player counts 5–10 are implemented, but only 6p has per-count recalibration
-  of the gates (as ratio-derived values); the ratios were never re-swept at
-  other counts. The likelihood tables also assume the same greedy-ish fascist
-  play at every count.
+- Player counts 5–10 are implemented with gates re-derived per count as ratios
+  to that count's priors. The vote-gate ratio was confirmed to transfer (flat
+  sweep at 9p); the crown-cap ratio was re-swept at 9–10p and moves to 0.80 for
+  all multi-fascist counts (row 20). The 7p cap sweep was not run — 7–8p
+  inherit the 9–10p value.
 - 840 worlds × 10 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.
