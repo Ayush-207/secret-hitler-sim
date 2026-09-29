@@ -1,13 +1,13 @@
 # Secret Hitler Trust-Model Simulation
 
-A Monte Carlo simulator testing whether liberals in a 6-player Secret Hitler game
-can win more often with a purely statistical trust model — Bayesian posteriors
-updated only on *observable moves* (enacted policies, nominations), with no
-reliance on what players say.
+A Monte Carlo simulator testing whether liberals in Secret Hitler (5–10 players;
+6 as the reference calibration) can win more often with a purely statistical
+trust model — Bayesian posteriors updated only on *observable moves* (enacted
+policies, nominations), with no reliance on what players say.
 
 **Answer: yes, decisively** — the best liberal configuration wins ≥70% against
-every fascist doctrine tested, including ones designed with full knowledge of the
-liberal model. The single biggest lever is reading **nomination behavior**.
+every fascist doctrine tested at 6p, including ones designed with full knowledge
+of the liberal model. The single biggest lever is reading **nomination behavior**.
 
 Code walkthrough (how each component works, how the model evolved): [HOW_IT_WORKS.md](HOW_IT_WORKS.md).
 This README is the results doc — strategies, matchup tables, findings,
@@ -18,8 +18,9 @@ history.
 ## Usage
 
 ```bash
-python3 sim.py 10000          # full grid of liberal × fascist strategies, 10k games/cell
-python3 sim.py 10000 pool     # same, with the simpler shared-pool deck model
+python3 sim.py 10000           # 6p grid of liberal × fascist strategies, 10k games/cell
+python3 sim.py 2000 8          # same grid at 8 players (counts 5-10)
+python3 sim.py 10000 6 pool    # with the simpler shared-pool deck model
 ```
 
 Python 3 stdlib only. Results print as a table (lib win%, checkmate%, shot-Hitler%,
@@ -27,7 +28,8 @@ elections, chaos, executions). Canonical rerun: `results_full_grid.txt`.
 
 ## Rules modeled
 
-6 players: 4 liberals, 1 fascist, 1 Hitler (official setup). 17-card deck (11F/6L),
+6 players (the reference count): 4 liberals, 1 fascist, 1 Hitler (official setup).
+17-card deck (11F/6L),
 3-card presidential draws, **private discards** (as in the real game — players see
 enacted policies, never the discarded card); no strategy sees the draw pile's true
 split. 5–6p power track: F2 investigate, F3 special election, F4 execution, F5 execution + veto (from 5F the chancellor may propose discarding both cards; if the
@@ -35,6 +37,8 @@ president agrees nothing is enacted and it counts as a failed election — liber
 to escape a forced 6th F). Chaos (3 failed elections)
 enacts the top card with no power. Term limits on the last successful government.
 Electing Hitler chancellor at ≥3F = instant fascist win (the "checkmate").
+Other counts use the official tables (roles, decks, power tracks) — see the
+scaling section under Results.
 
 ## The model
 
@@ -138,6 +142,64 @@ The compliant/blend nomination rule only activates when a public belief exists
 to compute a consensus from — against these brains the fascists fall back to
 greedy/groom routing, and blend's enactment timing is near-indistinguishable
 from groom's since its deniability check is almost always true.)
+
+### Scaling the player count (6 → 10)
+
+The sim was generalized to the official role/deck tables (6p: 4L+1F+1H, 11F/6L
+deck … 10p: 6L+3F+1H, 15F/6L) with worlds generalized from (Hitler, fascist)
+pairs to (Hitler, fascist-set) — 30 worlds at 6p, 840 at 10p. Two changes to
+keep the calibration honest:
+
+- **Gates transfer as ratios, not numbers.** The vote gate, crown cap and
+  nomination cap are absolute numbers calibrated at 6p. They are prior-dependent:
+  the game-start pair prior falls from 0.60 (6p, public belief) toward 0.31
+  (10p) as the fascist set grows, so copying the absolutes would deadlock every
+  election into chaos. Each gate is re-derived per count as a fixed *ratio* to
+  that count's own game-start prior, with the ratios chosen so 6p reproduces
+  the published constants exactly (verified: the full 10k 6p grid matches the
+  pre-parameterization results to the decimal).
+- **The enactment likelihoods did NOT rescale** — the greedy-discard logic
+  (both-liberal gov forced to F only on an FFF hand, etc.) is count-independent.
+  An earlier draft scaled it with the fascist count; the 6p regression caught
+  it, which is exactly what the regression is for.
+
+`stats1-9g` win rate per player count (games/cell: 10k at 6p, 2k at 7–8p, 1k
+at 9–10p):
+
+| liberals \ fascists | greedy | strategic | groom | compliant | blend |
+|---|---|---|---|---|---|
+| **6p** | **97.0** | **96.8** | **96.3** | **76.3** | **87.1** |
+| 7p | 91.2 | 91.3 | 89.8 | 48.1 | 75.8 |
+| 8p | 92.9 | 93.5 | 93.5 | 60.4 | 82.3 |
+| 9p | 80.3 | 81.4 | 79.0 | 34.3 | 62.9 |
+| 10p | 77.9 | 79.5 | 77.5 | 35.1 | 68.2 |
+| naive @ greedy | 64.2 | 38.6 | 48.4 | 25.5 | 23.8 |
+
+(last row = the naive baseline vs greedy, for scale.)
+
+**Reading the table.**
+
+- The statistical advantage *survives scaling*: stats1-9g beats naive by
+  +27 to +33 points at every count, on the same decks.
+- **7p is the hardest count** (compliant 48.1): a second fascist arrives while
+  liberals are still only 4 — the fascist seats are harder to separate (bad-rate
+  prior 0.50) and the board's checkmate zone is easier to reach.
+- 8p recovers (60.4) with the fifth liberal; 9p drops hard (34.3) with the third.
+- **Compliant fascism is the count-scaling killer.** Against every open doctrine
+  (greedy/strategic/groom) the edge decays gently (97 → 78); against compliant
+  it collapses (76 → 35, near the naive baseline). The anatomy is pure tempo,
+  not signal: deviation tells fire **zero** times against compliant at 6p *and*
+  7p — the tell is already fully silenced at 6p — but the liberal win condition
+  is fixed at 5 L enacted while the deck's L-count is fixed at 6 cards and the
+  F-count grows with N. P(a mixed government enacts F) climbs 0.728 (6p) →
+  0.755 (7–8p) → 0.798 (9p) → 0.816 (10p), and policy losses (liberals stalled
+  at ≤4 L, fascists hitting 6F) grow from 9% of games at 6p to **58% at 9p and
+  54% at 10p**. The fascists stop needing to hide; the deck hides them.
+- Checkmate losses stay flat the whole way (14.8% at 6p, 10.0% at 9p vs
+  compliant) — the crown-phase counters scale; the tempo race does not.
+- The gates-as-ratios hypothesis (transfer as shape) was never re-swept per
+  count: the counts here may understate what a per-count recalibration would
+  give, especially at 9–10p. Open item.
 
 ### Calibrating the crown cap (why 0.10)
 
@@ -370,8 +432,11 @@ that incriminate them.
 - The ~90% fascist deviation rate is a property of the tested doctrines, not a law.
   Real adversaries who know the rule can comply almost perfectly — at the measured
   cost of tempo (fascist win rate 30.7% vs compliant in the final grid).
-- 6 players only. The board, Hitler-knowledge asymmetry, and posterior size
-  (30 worlds) all change at other player counts.
+- 5–10 players, 6p as the reference calibration. Other counts use the official
+  role/deck tables with gates re-derived as ratios to each count's own priors
+  (never re-swept per count — see the scaling section); the board, Hitler-
+  knowledge asymmetry and posterior size (30 worlds at 6p, 840 at 10p) all
+  change with the count.
 - Compute realism: 30-world posteriors × 6 players is a laptop's job, not a human's.
   At a real table this is a bounded approximation (6 trust axes) at best.
 - Each world's deck estimate assumes greedy-ish fascists (the same assumption as the

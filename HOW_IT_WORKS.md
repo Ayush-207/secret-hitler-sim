@@ -6,15 +6,15 @@ does, why it is built that way, and how the implementation evolved.
 
 ## The question
 
-Can liberals win Secret Hitler more often by ignoring everything players *say* and reading only what they *do*? In a simulated 6-player game (4 liberals, 1 fascist, 1 Hitler), yes: the best statistical liberals win **76–97%** of games against every fascist strategy tested (full grid in the README). Liberals who don't reason at all win 64–70%.
+Can liberals win Secret Hitler more often by ignoring everything players *say* and reading only what they *do*? In a simulated 6-player game (4 liberals, 1 fascist, 1 Hitler), yes: the best statistical liberals win **76–97%** of games against every fascist strategy tested (full grid in the README). Liberals who don't reason at all win 64–70%. The code generalizes to 5–10 players (official role/deck tables); scaling results in the README.
 
 The whole simulation is one Python file ([`sim.py`](sim.py), standard library only). Every snippet below comes from it, trimmed for reading.
 
 | Term | Meaning |
 | --- | --- |
 | F / L | A fascist / liberal policy card |
-| World | One guess at the hidden roles: which seat is Hitler and which is the fascist. 6 × 5 = 30 worlds |
-| Belief | One liberal's probability for each of the 30 worlds |
+| World | One guess at the hidden roles: which seat is Hitler and which seats are fascists. 6p: 6 × 5 = 30 worlds; 10p: 10 × C(9,3) = 840 |
+| Belief | One liberal's probability for each world |
 | Likelihood | How probable an observed move is *if* a given world were true |
 | Update | Multiply each world's probability by its likelihood, then rescale so they sum to 1 (Bayes' rule) |
 | Argmax | Pick the option with the highest score |
@@ -26,11 +26,18 @@ The whole simulation is one Python file ([`sim.py`](sim.py), standard library on
 One `Game` object is one game. Setup deals the roles, shuffles the deck, and gives every seat a belief:
 
 ```python
-roles = ["L"] * 4 + ["F", "H"]
-rng.shuffle(roles)                       # fresh random deal every game
-self.deck = ["F"] * 11 + ["L"] * 6      # 17 policy cards
-rng.shuffle(self.deck)
-self.beliefs = [Belief(i) for i in range(6)]
+SETUP = {5: (3,1,1), 6: (4,1,1), 7: (4,2,1), 8: (5,2,1),
+         9: (5,3,1), 10: (6,3,1)}      # (liberals, fascists, hitler)
+DECK_TABLE = {5: (11,6), 6: (11,6), 7: (12,6), 8: (12,6),
+              9: (14,6), 10: (15,6)}   # (F, L) policy cards
+
+def __init__(self, lib, fas, rng, n=6):
+    nl, nf, nh = SETUP[n]
+    df, dl = DECK_TABLE[n]
+    roles = ["L"] * nl + ["F"] * nf + ["H"] * nh
+    rng.shuffle(roles)                  # fresh random deal every game
+    rng.shuffle(self.deck)
+    self.beliefs = [Belief(i, n) for i in range(n)]
 ```
 
 The rules the code enforces:
@@ -50,17 +57,21 @@ Liberals see only **public** events: who nominated whom, the votes, the policy e
 
 ## The belief: 30 worlds, not 6 trust scores
 
-The whole hidden state fits in one pair of seats (Hitler, fascist). Each liberal keeps a probability for every pair:
+The whole hidden state fits in one (Hitler, fascist-set) assignment. Each liberal keeps a probability for every assignment:
 
 ```python
-HYPS = [(h, f) for h in range(6) for f in range(6) if h != f]   # 30 worlds
+# 6p: (hitler, frozenset-of-fascists), 30 worlds. 10p: 840.
+HYPS = [(a, frozenset(fs))
+        for a in range(n)
+        for fs in combinations(range(n), nf)
+        if a not in fs]
 
 class Belief:
-    def __init__(self, owner):
-        self.w = [1 / 30] * 30
-        for idx, (h, f) in enumerate(HYPS):
-            if owner in (h, f):          # "I know I'm liberal"
-                self.w[idx] = 0.0        # 10 worlds ruled out, 20 remain
+    def __init__(self, owner, n):
+        self.w = [1.0 / len(self.hyps)] * len(self.hyps)
+        for idx, (h, fs) in enumerate(self.hyps):
+            if owner == h or owner in fs:   # "I know I'm liberal"
+                self.w[idx] = 0.0
 ```
 
 A "trust score" is not stored. It's read out of the 30 numbers when needed:
@@ -262,6 +273,20 @@ Each step answered a weakness the step before exposed. Win rates are the ones me
 | 16 | Ignore deviations from an illegal consensus | when the consensus pick exceeded the cap there was nothing to deviate from; penalizing it punished innocence | 68.1 → 69.2 vs compliant |
 | 17 | Liberals vote as a block (`LIB_VOTE_COMPLY`) | private-vote splits went 3–2 on borderline elections; fascist yes-votes flipped 1,195/26,700 | worst case 69.2 → **76.3** (10k, with calibrated thresholds); policy losses 450 → 255 |
 | 18 | Calibrate the vote thresholds (`VOTE_T` = 0.32 flat) | swept like the crown cap; the hand-picked 0.28 sat at a plateau's edge; 0.40 flat reproduces the original deadlock as a measured tail (15.6%) | +2.0 worst case; final grid 76.3 vs compliant |
+| 19 | Generalize 6p → 5–10 players | official setup/deck/power tables; worlds become (Hitler, fascist-set): 30 → 840 | every cell ≥ 6p grid at every count tested; see README scaling table |
+
+**The row-19 scaling lesson: gates are prior-dependent, and the regression
+catches what review doesn't.** Two findings from generalizing. First, the 6p
+calibration produced *absolute* gates (vote 0.32, crown cap 0.10), but the pair
+prior at game start falls from 0.60 (6p) toward 0.31 (10p) as the fascist set
+grows — copying the absolutes to 10p would deadlock every election into chaos
+(the row-18 0.40-flat tail at every count). The gates are re-derived per count
+as fixed ratios to that count's own game-start priors, with ratios chosen so
+6p reproduces the published constants exactly. Second, an earlier draft also
+scaled the enactment-threshold logic with the fascist count (`nf + 1 - …`); the
+greedy-discard logic is actually count-independent (`3 - bads`). Nothing but
+the 10k 6p regression grid — an exact match to the pre-parameterization
+results, to the decimal — caught it.
 
 A calibration lesson from row 18 that cost a full grid rerun to find: **a
 threshold calibrated on one belief architecture does not transfer to another.**
@@ -276,5 +301,8 @@ their own constants.
 - The fascist strategies are hand-written rules, not an optimal opponent. A fascist tuned against the exact likelihood tables could do better.
 - The liberal model assumes fascists push F when they can. Against other styles its numbers are a little off, which is why every likelihood is clamped.
 - Votes are public in the real game. As *evidence* they were measured and rejected: encoding the fascists' vote rule into the likelihood hit 99.8% (stacked deck — we wrote both sides), but 20% fascist vote noise drops it to 83.7 and 40% inverts it to 49.9 (worse than ignoring votes). As *mechanics* they matter: unified public-belief voting (row 17) is worth +6.7 on the worst case. Veto proposals/acceptances and the *targeting choices* of liberal executive powers are also unmodeled.
-- It covers 6 players only. Other player counts change the board and who knows whom.
-- 30 worlds × 6 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.
+- Player counts 5–10 are implemented, but only 6p has per-count recalibration
+  of the gates (as ratio-derived values); the ratios were never re-swept at
+  other counts. The likelihood tables also assume the same greedy-ish fascist
+  play at every count.
+- 840 worlds × 10 players is a laptop's job. At a real table, this is a guide to reasoning, not a procedure to follow.

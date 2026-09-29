@@ -1,0 +1,28 @@
+--- 7 players, 2000 games ---
+liberals  fascists    lib win%  checkmate%  shot_H%  elections   chaos   execs
+------------------------------------------------------------------------------
+naive     greedy         38.6       17.3      6.1       14.5    2.83    0.40
+stats1    greedy         52.3        4.4      7.2       14.1    2.68    0.35
+stats1-9g greedy         91.2        3.1     17.2       11.7    1.41    0.51
+hybrid    greedy         36.0        3.4      2.9       15.9    3.63    0.12
+stats2    greedy         50.2        6.0      9.2       14.2    2.71    0.39
+naive     strategic      40.8       30.9      5.3       13.3    2.31    0.33
+stats1    strategic      50.7       14.7      4.0       13.6    2.42    0.30
+stats1-9g strategic      91.3        4.3     14.4       11.4    1.33    0.45
+hybrid    strategic      39.4       14.8      1.8       14.9    3.09    0.12
+stats2    strategic      48.0       17.5      5.0       13.5    2.40    0.32
+naive     groom          43.0       35.4      4.2       12.6    1.99    0.26
+stats1    groom          47.5       25.8      3.5       12.7    1.95    0.35
+stats1-9g groom          89.8        5.0     13.9       11.3    1.31    0.45
+hybrid    groom          39.6       22.2      1.6       14.2    2.71    0.14
+stats2    groom          46.5       27.1      4.5       12.7    1.97    0.35
+naive     compliant      38.6       17.3      6.1       14.5    2.83    0.40
+stats1    compliant      52.3        4.4      7.2       14.1    2.68    0.35
+stats1-9g compliant      48.1       16.8     10.3       11.8    1.42    0.69
+hybrid    compliant      36.0        3.4      2.9       15.9    3.63    0.12
+stats2    compliant      50.2        6.0      9.2       14.2    2.71    0.39
+naive     blend          43.0       35.4      4.2       12.6    1.99    0.26
+stats1    blend          47.5       25.8      3.5       12.7    1.95    0.35
+stats1-9g blend          75.8       15.5     10.9       10.3    0.81    0.41
+hybrid    blend          39.6       22.2      1.6       14.2    2.71    0.14
+stats2    blend          46.5       27.1      4.5       12.7    1.97    0.35

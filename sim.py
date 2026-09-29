@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Secret Hitler 6-player Monte Carlo.
+Secret Hitler Monte Carlo, 5-10 players (6p default).
 
 Question: does a purely statistical trust model (Bayesian posteriors over role
 assignments, updated ONLY on observable moves -- enacted policies; no claims,
@@ -8,10 +8,11 @@ no speech) raise the liberals' win rate above a naive baseline, and how does
 the answer degrade against different fascist play styles?
 
 Assumptions:
-- 6 players: 4 liberals, 1 fascist, 1 Hitler. 5-6p board:
-  F2 investigate, F3 special election, F4 execution, F5 execution + veto unlock.
-- Deck: 11F / 6L. Discards are PRIVATE (as in the real game): players observe
-  enacted policies, nominations, and votes — never the discarded card's color.
+- Player counts 5-10 with the official role/deck tables (SETUP / DECK_TABLE)
+  and official board powers (POWERS). 6p default: 4 liberals, 1 fascist,
+  1 Hitler. Veto unlocks at 5F on every board; 5L / 6F wins at every count.
+- Discards are PRIVATE (as in the real game): players observe enacted
+  policies, nominations, and votes -- never the discarded card's color.
   The pile's card COUNT is public (matters only for reshuffles).
 - Chaos (3 failed elections) enacts the top card; no executive power fires.
 - Term limits: the president+chancellor of the last successful government
@@ -21,30 +22,90 @@ Assumptions:
 - The liberal belief model ASSUMES fascists are greedy (enact F whenever the
   hand allows). Real sim fascists may deviate -> deliberate misspecification;
   measuring robustness to it is the point of the experiment.
+
+Player-count scaling of the calibrated gates: the 6p calibration produced
+ABSOLUTE numbers (vote 0.32, crown cap 0.10, pre-3F cap 0.40, private vote
+0.28). They are prior-dependent, so at every other count the gates are
+re-derived as RATIOS to that count's own game-start priors (read off the
+belief machinery itself in Game.__init__), with ratios chosen so 6p
+reproduces the published constants exactly. See the ratio block below.
 """
 
 import math
 import random
 from collections import Counter
+from itertools import combinations
 
-N = 6
-DECK_F, DECK_L = 11, 6
-HYPS = [(h, f) for h in range(N) for f in range(N) if h != f]  # (hitler, fascist)
-NH = len(HYPS)
-EPS = 0.03  # likelihood smoothing floor/ceiling
-CROWN_CAP = 0.10  # Hitler-cap at >=3F (the checkmate zone); calibrated by the
-                  # sweep in cap_sweep.txt -- interior peak of a two-sided trade-off
+# ---------------- official setup tables ----------------
+# roles per player count: (liberals, fascists, hitler)
+SETUP = {5: (3, 1, 1), 6: (4, 1, 1), 7: (4, 2, 1), 8: (5, 2, 1),
+         9: (5, 3, 1), 10: (6, 3, 1)}
+# policy deck per count: (F, L)   [rulebook table]
+DECK_TABLE = {5: (11, 6), 6: (11, 6), 7: (12, 6), 8: (12, 6),
+              9: (14, 6), 10: (15, 6)}
+# board powers by F count (official boards): inv = investigate, pe = special
+# election, ex = execution. Veto unlocks at 5F on every board.
+POWERS = {
+    5:  {2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+    6:  {2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+    7:  {2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+    8:  {2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+    9:  {1: "inv", 2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+    10: {1: "inv", 2: "inv", 3: "pe", 4: "ex", 5: "ex"},
+}
+POLICY_F_WIN = 6     # fascist win: 6 F on the board (every count)
+POLICY_L_WIN = 5     # liberal win: 5 L on the board (every count)
+
+# ---------------- strategy flags (count-independent) ----------------
 LIB_COMPLY = True   # liberal presidents also nominate the public-consensus pick
                     # (measured better in every cell -- see cap_sweep.txt / README)
 VOTE_LK = 0.0       # vote-record evidence: OFF by default -- measured stacked-deck
                     # when on (we wrote the fascists' vote rule) and unstable under
                     # noise (40% noise -> worse than ignoring votes). See README F7.
-LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (4-vote block)
+LIB_VOTE_COMPLY = True  # liberals cast a unified public-belief vote (a block)
                         # (measured better on the worst case by +6.7 pts -- see README)
-VOTE_T = {0: 0.32, 1: 0.32, 2: 0.32, 3: 0.40}   # joint-liberal vote thresholds by
-                            # board_f (dict; .get(board_f, 0.40) beyond). Calibrated
-                            # by sweep -- vote_sweep.txt (interior peak; t_mid 0.30-0.34
-                            # flat, t3 insensitive, 0.40 flat = deadlock)
+
+# ---------------- calibrated gates as RATIOS, not absolutes ----------------
+# 6p game-start priors (measured from the belief objects in Game.__init__):
+#   public pair prior  P(two seats both liberal)        = 12/30 = 0.40
+#   public Hitler prior P(specific seat is Hitler)      = 1/6
+#   private pair prior (observer rules out own seat)    = 6/20  = 0.30
+#   private Hitler prior                                = 1/5   = 0.20
+# Ratios chosen so 6p reproduces the published constants exactly:
+#   vote gate      = 0.80   x public pair prior          (6p: 0.32)
+#   vote gate >=3F = 1.25   x the <3F gate               (6p: 0.40)
+#   crown cap (public ph, >=3F) = 0.60 x public Hitler prior (6p: 0.10)
+#   pre-3F cap (public ph)      = 2.40 x public Hitler prior (6p: 0.40)
+#   crown cap (private ph, >=3F)   = 0.50 x private Hitler prior (6p: 0.10)
+#   pre-3F cap (private ph)        = 2.00 x private Hitler prior (6p: 0.40)
+#   private vote gate = 0.9333 x private pair prior (6p: 0.28; row 18:
+#   calibrated separately -- a threshold does not transfer across architectures)
+#   private vote gate >=3F = 1.4286 x the <3F gate (6p: 0.40)
+# The ratios are the null hypothesis that the 6p calibration transfers as
+# SHAPE, not as numbers. Re-sweeping per count would refine them.
+VOTE_R, VOTE_T3_R = 0.80, 1.25
+CAP_PUB_R = {0: 2.40, 3: 0.60}      # x public Hitler prior (1/n)
+CAP_PRIV_R = {0: 2.00, 3: 0.50}     # x private Hitler prior (1/(n-1))
+PRIV_VOTE_R, PRIV_VOTE_T3_R = 0.28 / 0.30, 0.40 / 0.28
+EPS = 0.03  # likelihood smoothing floor/ceiling
+DEFAULT_N = 6
+
+# worlds for n players: (hitler, frozenset-of-fascists), memoized per count
+_HYPS_CACHE = {}
+
+
+def hyps_for(n):
+    """All role assignments: (hitler, frozenset of fascists). 6p: 30 worlds;
+    10p: 10 * C(9,3) = 840."""
+    h = _HYPS_CACHE.get(n)
+    if h is None:
+        nf = SETUP[n][1]
+        h = [(a, frozenset(fs))
+             for a in range(n)
+             for fs in combinations(range(n), nf)
+             if a not in fs]
+        _HYPS_CACHE[n] = h
+    return h
 
 
 def hand_probs(df, dl):
@@ -68,7 +129,7 @@ def deck_state(key):
     """key = (f0, n0, events). Returns (dist, lik): dist[f] = P(draw pile holds
     f fascist cards) after the events; lik = P(last event | earlier events).
     Events: ("g", thresh, enacted_f) a government -- F is enacted iff the hand
-    holds >= thresh F (3 = both liberal, 2 = mixed, 1 = both fascist, under the
+    holds >= thresh F (nf+1 = both liberal, ..., 1 = all fascist, under the
     greedy-fascist assumption); ("v",) a vetoed hand; ("c", is_f) a chaos card."""
     r = _DECK_MEMO.get(key)
     if r is not None:
@@ -117,25 +178,27 @@ def deck_state(key):
 
 
 class Belief:
-    """Posterior over the 30 ordered (Hitler, fascist) assignments, conditioned
-    on the owner being liberal. Updated only on policy enactments."""
+    """Posterior over the role-assignment worlds for n players, conditioned on
+    the owner being liberal. Updated only on observable moves."""
 
-    def __init__(self, owner):
+    def __init__(self, owner, n=DEFAULT_N):
+        self.n = n
+        self.hyps = hyps_for(n)
         self.owner = owner    # None = public belief (no self-knowledge zeroing)
-        self.w = [1.0 / NH] * NH
+        self.w = [1.0 / len(self.hyps)] * len(self.hyps)
         if owner is not None:
-            for idx, (h, f) in enumerate(HYPS):
-                if owner in (h, f):
+            for idx, (h, fs) in enumerate(self.hyps):
+                if owner == h or owner in fs:
                     self.w[idx] = 0.0
         self._renorm()
 
     def _renorm(self):
         s = sum(self.w)
         if s <= 0:
-            self.w = [1.0 / NH] * NH
+            self.w = [1.0 / len(self.hyps)] * len(self.hyps)
             if self.owner is not None:
-                for idx, (h, f) in enumerate(HYPS):
-                    if self.owner in (h, f):
+                for idx, (h, fs) in enumerate(self.hyps):
+                    if self.owner == h or self.owner in fs:
                         self.w[idx] = 0.0
             self._renorm()
             return
@@ -143,16 +206,19 @@ class Belief:
 
     def update_policy(self, pres, chan, enacted_f, df, dl):
         p = hand_probs(df, dl)
-        table = {
-            ("L", "L"): p[3],
-            ("L", "F"): p[3] + p[2],
-            ("F", "L"): p[3] + p[2],
-            ("F", "F"): 1.0 - p[0],  # FF gov is forced to pass L only on an LLL draw
-        }
-        for idx, (h, f) in enumerate(HYPS):
-            fset = {h, f}
-            tp = "F" if pres in fset else "L"
-            tc = "F" if chan in fset else "L"
+        # threshold per gov type: F enacted iff hand holds >= thresh F. The
+        # greedy-discard logic is count-independent: both liberal -> only an
+        # FFF hand forces F (3); mixed -> 2+ F (2); both fascist -> any F (1).
+        table = {}
+        for tp in ("L", "F"):
+            for tc in ("L", "F"):
+                nbad = (tp == "F") + (tc == "F")
+                thresh = 3 - nbad
+                table[(tp, tc)] = sum(p[k] for k in range(4) if k >= thresh)
+        for idx, (h, fs) in enumerate(self.hyps):
+            bad = set(fs) | {h}
+            tp = "F" if pres in bad else "L"
+            tc = "F" if chan in bad else "L"
             base = table[(tp, tc)]
             lk = base if enacted_f else 1.0 - base
             lk = min(max(lk, EPS), 1 - EPS)
@@ -165,8 +231,8 @@ class Belief:
         self._renorm()
 
     def observe_party(self, target, is_fascist):
-        for idx, (h, f) in enumerate(HYPS):
-            if (target in (h, f)) != is_fascist:
+        for idx, (h, fs) in enumerate(self.hyps):
+            if (target == h or target in fs) != is_fascist:
                 self.w[idx] = 0.0
         self._renorm()
 
@@ -176,8 +242,8 @@ class Belief:
         Compliance carries no update (avoids feedback spirals)."""
         if not deviated:
             return
-        for idx, (h, f) in enumerate(HYPS):
-            pres_f = pres in (h, f)
+        for idx, (h, fs) in enumerate(self.hyps):
+            pres_f = pres == h or pres in fs
             if strength == "hard":
                 lk = 1.0 if pres_f else 0.0
             else:
@@ -190,43 +256,39 @@ class Belief:
         """Counter A: exact bookkeeping. A seat elected chancellor while the
         board showed >=3F policies and the game continued cannot be Hitler
         (that election would have been the checkmate). Zero those worlds."""
-        for idx, (h, f) in enumerate(HYPS):
+        for idx, (h, fs) in enumerate(self.hyps):
             if h == seat:
                 self.w[idx] = 0.0
         self._renorm()
 
     def update_vote(self, voter, pres, chan, yes):
-        """Vote-record evidence: votes are public in the real game. In a world
-        where the voter is FASCIST, their vote is determined by doctrine: yes
-        iff the government contains a fascist. In a world where the voter is
-        LIBERAL, the vote follows the liberal vote rule (computed there, passed
-        in as the observed vote). So only the fascist-side likelihood moves:
-        P(vote | voter fascist in this world, gov composition in this world).
-        Clamped like all behavioral evidence."""
-        for idx, (h, f) in enumerate(HYPS):
-            voter_f = voter in (h, f)
+        """Vote-record evidence (OFF by default -- see VOTE_LK)."""
+        for idx, (h, fs) in enumerate(self.hyps):
+            voter_f = voter == h or voter in fs
             if not voter_f:
                 continue            # liberal-side likelihood: 1 (handled by rule)
-            gov_f = pres in (h, f) or chan in (h, f)
+            gov_f = (pres == h or pres in fs or chan == h or chan in fs)
             predicted = gov_f       # fascist votes yes iff gov contains a fascist
             lk = VOTE_LK if (yes == predicted) else (1 - VOTE_LK)
             self.w[idx] *= min(max(lk, EPS), 1 - EPS)
         self._renorm()
 
     def marginals(self):
-        ph = [0.0] * N
-        pf = [0.0] * N
-        for idx, (h, f) in enumerate(HYPS):
+        n = self.n
+        ph = [0.0] * n
+        pf = [0.0] * n
+        for idx, (h, fs) in enumerate(self.hyps):
             w = self.w[idx]
             ph[h] += w
             pf[h] += w
-            pf[f] += w
+            for f in fs:
+                pf[f] += w
         return ph, pf
 
     def p_pair_liberal(self, a, b):
         s = 0.0
-        for idx, (h, f) in enumerate(HYPS):
-            if a not in (h, f) and b not in (h, f):
+        for idx, (h, fs) in enumerate(self.hyps):
+            if a != h and a not in fs and b != h and b not in fs:
                 s += self.w[idx]
         return s
 
@@ -285,9 +347,10 @@ def pres_discard(role, style, hand, deck, board_f):
 # ---------------- the game ----------------
 
 class Game:
-    def __init__(self, lib, fas, rng):
+    def __init__(self, lib, fas, rng, n=DEFAULT_N):
         self.lib = lib        # 'naive' | 'stats1' | 'stats2' | 'stats1-3' | 'stats1-9' | 'stats1-hard'
-        self.fas = fas        # 'greedy' | 'strategic' | 'groom'
+        self.fas = fas        # 'greedy' | 'strategic' | 'groom' | 'compliant' | 'blend'
+        self.n = n
         self.nom_strength = {"stats1-3": 3, "stats1-9": 9,
                              "stats1-hard": "hard"}.get(lib)
         self.nom_strength_g = {"stats1-3g": 3, "stats1-9g": 9,
@@ -295,26 +358,44 @@ class Game:
         if self.nom_strength_g:
             self.nom_strength = self.nom_strength_g
         self.rng = rng
-        roles = ["L"] * 4 + ["F", "H"]
+        nl, nf, nh = SETUP[n]
+        df, dl = DECK_TABLE[n]
+        roles = ["L"] * nl + ["F"] * nf + ["H"] * nh
         rng.shuffle(roles)
         self.role = roles
         self.fascists = {i for i, r in enumerate(roles) if r in ("F", "H")}
         self.hitler = roles.index("H")
-        self.alive = [True] * N
+        self.alive = [True] * n
         self.board_f = 0
         self.board_l = 0
-        self.deck = ["F"] * DECK_F + ["L"] * DECK_L
+        self.deck = ["F"] * df + ["L"] * dl
         rng.shuffle(self.deck)
         self.discards = []
-        self.wkeys = [(DECK_F, DECK_F + DECK_L, ())] * NH   # per-world deck state
+        self.wkeys = [(df, df + dl, ())] * len(hyps_for(n))  # per-world deck state
         self.fail = 0
         self.term = None            # (pres, chan) of last successful gov
-        self.pres = rng.randrange(N)
+        self.pres = rng.randrange(n)
         self.f_actors = set()       # chancellors who enacted F (naive memory)
-        self.beliefs = [Belief(i) for i in range(N)]
+        self.beliefs = [Belief(i, n) for i in range(n)]
         # public belief: same evidence, but no self-knowledge -> identical for
         # every observer; the basis of the group-consensus chancellor pick
-        self.public = Belief(None) if self.nom_strength else None
+        self.public = Belief(None, n) if self.nom_strength else None
+        # ---- calibrated gates for this count, from the ratio block ----
+        # game-start priors measured from the belief machinery itself
+        pub0 = Belief(None, n)
+        self.pair_pub0 = pub0.p_pair_liberal(0, 1)     # both seats liberal
+        ph0, _ = pub0.marginals()
+        self.ph_pub0 = ph0[0]                          # 1/n
+        priv0 = Belief(0, n)
+        self.pair_priv0 = priv0.p_pair_liberal(1, 2)
+        _ph, pf0 = priv0.marginals()
+        self.ph_priv0 = _ph[1] if self.n > 2 else 0.0  # P(seat 1 Hitler | 0 lib)
+        self.vote_t0 = VOTE_R * self.pair_pub0
+        self.vote_t3 = VOTE_T3_R * self.vote_t0
+        self.cap_pub = {b: r * self.ph_pub0 for b, r in CAP_PUB_R.items()}
+        self.cap_priv = {b: r * self.ph_priv0 for b, r in CAP_PRIV_R.items()}
+        self.priv_t0 = PRIV_VOTE_R * self.pair_priv0
+        self.priv_t3 = PRIV_VOTE_T3_R * self.priv_t0
         self.elections = 0
         self.chaos_count = 0
         self.checkmate = False
@@ -322,14 +403,25 @@ class Game:
         self.shot_hitler = False
         self.executions = []
 
+    # ---- gates ----
+    def cap(self, public):
+        """Hitler cap on the chancellor seat: loose below 3F, crown-tight at >=3F."""
+        caps = self.cap_pub if public else self.cap_priv
+        return caps[0] if self.board_f < 3 else caps[3]
+
+    def vote_t(self, private):
+        if private:
+            return self.priv_t3 if self.board_f >= 3 else self.priv_t0
+        return self.vote_t3 if self.board_f >= 3 else self.vote_t0
+
     # ---- helpers ----
     def alive_list(self):
-        return [i for i in range(N) if self.alive[i]]
+        return [i for i in range(self.n) if self.alive[i]]
 
     def next_alive(self, i):
         j = i
         while True:
-            j = (j + 1) % N
+            j = (j + 1) % self.n
             if self.alive[j]:
                 return j
 
@@ -338,7 +430,8 @@ class Game:
         self.discards = []
         self.rng.shuffle(self.deck)
         # the new pile is every card not on the board: known exactly again
-        self.wkeys = [(DECK_F - self.board_f, len(self.deck), ())] * NH
+        df, _dl = DECK_TABLE[self.n]
+        self.wkeys = [(df - self.board_f, len(self.deck), ())] * len(hyps_for(self.n))
 
     def draw(self, k):
         if len(self.deck) < k:
@@ -350,14 +443,15 @@ class Game:
     def deck_event(self, make_event, reweight):
         """Advance every world's deck state by one public event; if reweight,
         fold that world's likelihood of the event into all liberal beliefs."""
-        lks = [0.0] * NH
-        for idx, (h, f) in enumerate(HYPS):
+        hyps = hyps_for(self.n)
+        lks = [0.0] * len(hyps)
+        for idx, (h, fs) in enumerate(hyps):
             f0, n0, ev = self.wkeys[idx]
-            key = (f0, n0, ev + (make_event(h, f),))
+            key = (f0, n0, ev + (make_event(h, fs),))
             self.wkeys[idx] = key
             lks[idx] = deck_state(key)[1]
         if reweight:
-            for i in range(N):
+            for i in range(self.n):
                 if self.role[i] == "L":
                     self.beliefs[i].apply(lks)
             if self.public is not None:
@@ -369,7 +463,7 @@ class Game:
                 if i != self.pres and i not in t]
 
     def consensus_pick(self, observer):
-        """Group consensus: the argmax-chancellor from the PUBLIC belief —
+        """Group consensus: the argmax-chancellor from the PUBLIC belief --
         identical for every observer. Falls back to the observer's private
         array only if no public belief exists (legacy variants).
         Note: with a public belief the president MAY query this (it is
@@ -382,7 +476,7 @@ class Game:
             cands = self.eligible()
             if not cands:
                 cands = [i for i in self.alive_list() if i != self.pres]
-            cap = 0.40 if self.board_f < 3 else CROWN_CAP
+            cap = self.cap(public=True)
             scored = sorted(cands, key=lambda c: b.p_pair_liberal(self.pres, c),
                             reverse=True)
             ok = [c for c in scored if ph[c] <= cap]
@@ -397,7 +491,7 @@ class Game:
             cands = [i for i in self.alive_list() if i != self.pres]
         b = self.beliefs[observer]
         ph, _ = b.marginals()
-        cap = 0.40 if self.board_f < 3 else CROWN_CAP
+        cap = self.cap(public=False)
         scored = sorted(cands, key=lambda c: b.p_pair_liberal(observer, c),
                         reverse=True)
         ok = [c for c in scored if ph[c] <= cap]
@@ -431,7 +525,7 @@ class Game:
 
         if self.lib == "naive":
             j = pres
-            for _ in range(N):
+            for _ in range(self.n):
                 j = self.next_alive(j)
                 if j in cands:
                     return j
@@ -441,7 +535,7 @@ class Game:
         # hybrid: at >=3F the crown is a checkmate weapon -> trust-blind rotation
         if self.lib == "hybrid" and self.board_f >= 3:
             j = pres
-            for _ in range(N):
+            for _ in range(self.n):
                 j = self.next_alive(j)
                 if j in cands:
                     return j
@@ -454,12 +548,11 @@ class Game:
             consensus = self.consensus_pick(pres)
             if consensus is not None:
                 ph_pub, _ = self.public.marginals()
-                pub_cap = 0.40 if self.board_f < 3 else CROWN_CAP
-                if ph_pub[consensus] <= pub_cap:  # cap still applies
+                if ph_pub[consensus] <= self.cap(public=True):
                     return consensus
         b = self.beliefs[pres]
         ph, _ = b.marginals()
-        cap = 0.40 if self.board_f < 3 else CROWN_CAP
+        cap = self.cap(public=False)
         scored = sorted(cands, key=lambda c: b.p_pair_liberal(pres, c), reverse=True)
         ok = [c for c in scored if ph[c] <= cap]
         if not ok:
@@ -475,25 +568,21 @@ class Game:
         if self.lib == "naive":
             return pres not in self.f_actors and chan not in self.f_actors
         # LIB_VOTE_COMPLY: all liberals cast the SAME vote derived from the
-        # public belief (a 4-vote block). Private arrays stay for nominations,
+        # public belief (a voting block). Private arrays stay for nominations,
         # executions, investigations -- only the roll-call is unified.
         if LIB_VOTE_COMPLY and self.public is not None:
             ph_pub, _ = self.public.marginals()
-            cap = 0.40 if self.board_f < 3 else CROWN_CAP
-            t = VOTE_T.get(self.board_f, 0.40)
+            t = self.vote_t(private=False)
             return (self.public.p_pair_liberal(pres, chan) >= t
-                    and ph_pub[chan] <= cap)
+                    and ph_pub[chan] <= self.cap(public=True))
         b = self.beliefs[voter]
         ph, pf = b.marginals()
-        cap = 0.40 if self.board_f < 3 else CROWN_CAP
-        # PRIVATE path (brains without a public belief): a 0.32 gate deadlocks
-        # here -- self-knowledge zeroing lowers private pair scores (some seats
-        # score ~0.28-0.30 at game start, vs ~0.60 from the public belief).
-        # The 0.32 calibration was measured on the unified public-belief path;
-        # private votes keep their own (older) 0.28 default.
-        t = {0: 0.28, 1: 0.28, 2: 0.28, 3: 0.40}.get(self.board_f, 0.40)
+        # PRIVATE path (brains without a public belief): a public-path gate
+        # deadlocks here -- self-knowledge zeroing lowers private pair scores
+        # (see HOW_IT_WORKS row 18). Private votes keep their own calibration.
+        t = self.vote_t(private=True)
         joint = b.p_pair_liberal(pres, chan)
-        return joint >= t and ph[chan] <= cap
+        return joint >= t and ph[chan] <= self.cap(public=False)
 
     def investigate_target(self, pres):
         if self.lib == "naive":
@@ -562,12 +651,12 @@ class Game:
                 consensus = self.consensus_pick(obs) if obs is not None else None
                 if consensus is not None:
                     ph_pub, _ = self.public.marginals()
-                    leg_cap = 0.40 if self.board_f < 3 else CROWN_CAP
-                    deviated = (chan != consensus) and ph_pub[consensus] <= leg_cap
+                    deviated = ((chan != consensus)
+                                and ph_pub[consensus] <= self.cap(public=True))
                     if deviated:
                         # public event: every liberal folds it into their own
                         # posterior (and the public array stays current)
-                        for i in range(N):
+                        for i in range(self.n):
                             if self.role[i] == "L":
                                 self.beliefs[i].update_nomination(
                                     self.pres, True, self.nom_strength)
@@ -581,7 +670,7 @@ class Game:
             # behavior is the voters' own rule -- using it would feed back).
             if VOTE_LK:
                 for k, j in enumerate(self.alive_list()):
-                    for i in range(N):
+                    for i in range(self.n):
                         if self.role[i] == "L" and i != j:
                             self.beliefs[i].update_vote(j, self.pres, chan,
                                                         votes[k])
@@ -599,7 +688,7 @@ class Game:
                 # counter A: this government passed at >=3F with a non-Hitler
                 # chancellor (else the checkmate fired above) -> exact update
                 if self.board_f >= 3:
-                    for i in range(N):
+                    for i in range(self.n):
                         if self.role[i] == "L":
                             self.beliefs[i].not_hitler(chan)
                     if self.public is not None:
@@ -626,14 +715,15 @@ class Game:
         # the fascist bots' deniability heuristic and by liberals only in "pool"
         # mode; in "tracked" mode liberals use each world's own pile estimate
         # (deck_event / deck_state).
-        deck_before = (DECK_F - self.board_f, DECK_L - self.board_l)
+        deck_before = (DECK_TABLE[self.n][0] - self.board_f,
+                       DECK_TABLE[self.n][1] - self.board_l)
         hand = self.draw(3)
         discard, pair = pres_discard(self.role[pres], self.fas, hand,
                                      deck_before, self.board_f)
         self.discards.append(discard)
 
         if self.veto(pair, deck_before):
-            self.deck_event(lambda h, f: ("v",), reweight=False)
+            self.deck_event(lambda h, fs: ("v",), reweight=False)
             self.discards += list(pair)
             self.fail += 1
             self.term = None
@@ -656,10 +746,11 @@ class Game:
         if DECK_MODEL == "tracked":
             ef = enacted == "F"
             self.deck_event(
-                lambda h, f: ("g", 3 - (pres in (h, f)) - (chan in (h, f)), ef),
+                lambda h, fs: ("g", 3 - ((pres == h or pres in fs)
+                                         + (chan == h or chan in fs)), ef),
                 reweight=True)
         else:
-            for i in range(N):
+            for i in range(self.n):
                 if self.role[i] == "L":
                     self.beliefs[i].update_policy(pres, chan, enacted == "F",
                                                   deck_before[0], deck_before[1])
@@ -667,10 +758,10 @@ class Game:
                 self.public.update_policy(pres, chan, enacted == "F",
                                           deck_before[0], deck_before[1])
         # win by policy count
-        if self.board_f >= 6:
+        if self.board_f >= POLICY_F_WIN:
             self.winner = "F"
             return
-        if self.board_l >= 5:
+        if self.board_l >= POLICY_L_WIN:
             self.winner = "L"
             return
         self.term = (pres, chan)
@@ -682,26 +773,27 @@ class Game:
         card = self.draw(1)[0]
         # the chaos card's colour is evidence too: each world predicts it from
         # its own deck estimate (pool model treats it as uninformative)
-        self.deck_event(lambda h, f: ("c", card == "F"),
+        self.deck_event(lambda h, fs: ("c", card == "F"),
                         reweight=DECK_MODEL == "tracked")
         self.board_f += card == "F"
         self.board_l += card == "L"
         self.fail = 0
         self.chaos_count += 1
-        if self.board_f >= 6:
+        if self.board_f >= POLICY_F_WIN:
             self.winner = "F"
-        elif self.board_l >= 5:
+        elif self.board_l >= POLICY_L_WIN:
             self.winner = "L"
 
     def powers(self, pres):
-        if self.board_f == 2:                       # investigate
+        power = POWERS[self.n].get(self.board_f)
+        if power == "inv":                       # investigate
             t = self.investigate_target(pres)
             if self.role[pres] == "L":
                 self.beliefs[pres].observe_party(t, t in self.fascists)
-        elif self.board_f == 3:                     # special election
+        elif power == "pe":                      # special election
             self.pres = self.special_elect(pres)
             self.pres_override = True
-        elif self.board_f in (4, 5):                # execution
+        elif power == "ex":                      # execution
             t = self.execution_target(pres)
             self.alive[t] = False
             self.executions.append((pres, t))
@@ -710,11 +802,11 @@ class Game:
                 self.winner = "L"
 
 
-def run(lib, fas, n_games, seed=1234):
+def run(lib, fas, n_games, seed=1234, n=DEFAULT_N):
     rng = random.Random(seed)
     stats = Counter()
     for _ in range(n_games):
-        g = Game(lib, fas, rng)
+        g = Game(lib, fas, rng, n)
         w = g.run()
         stats["games"] += 1
         if w == "L":
@@ -725,30 +817,33 @@ def run(lib, fas, n_games, seed=1234):
         stats["elections"] += g.elections
         stats["chaos"] += g.chaos_count
         stats["executions"] += len(g.executions)
-    n = stats["games"]
+    n_g = stats["games"]
     return {
-        "lib_win%": 100 * stats["lib_win"] / n,
-        "checkmate%": 100 * stats["checkmate"] / n,
-        "shot_H%": 100 * stats["shot_hitler"] / n,
-        "avg_elections": stats["elections"] / n,
-        "avg_chaos": stats["chaos"] / n,
-        "avg_executions": stats["executions"] / n,
+        "lib_win%": 100 * stats["lib_win"] / n_g,
+        "checkmate%": 100 * stats["checkmate"] / n_g,
+        "shot_H%": 100 * stats["shot_hitler"] / n_g,
+        "avg_elections": stats["elections"] / n_g,
+        "avg_chaos": stats["chaos"] / n_g,
+        "avg_executions": stats["executions"] / n_g,
     }
 
 
 if __name__ == "__main__":
     import sys
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
-    if len(sys.argv) > 2:            # optional: "pool" or "tracked"
-        DECK_MODEL = sys.argv[2]
-    libs =["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
+    n_games = int(sys.argv[1]) if len(sys.argv) > 1 else 10000
+    n_players = int(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_N
+    if len(sys.argv) > 3:            # optional: "pool" or "tracked"
+        DECK_MODEL = sys.argv[3]
+    libs = ["naive", "stats1", "stats1-9g", "hybrid", "stats2"]
     fass = ["greedy", "strategic", "groom", "compliant", "blend"]
-    hdr = f"{'liberals':<10}{'fascists':<11}{'lib win%':>9}{'checkmate%':>12}{'shot_H%':>9}{'elections':>11}{'chaos':>8}{'execs':>8}"
+    hdr = (f"{'liberals':<10}{'fascists':<11}{'lib win%':>9}{'checkmate%':>12}"
+           f"{'shot_H%':>9}{'elections':>11}{'chaos':>8}{'execs':>8}")
+    print(f"--- {n_players} players, {n_games} games ---")
     print(hdr)
     print("-" * len(hdr))
     for fas in fass:
         for lib in libs:
-            r = run(lib, fas, n)
+            r = run(lib, fas, n_games, n=n_players)
             print(f"{lib:<10}{fas:<11}{r['lib_win%']:>8.1f}{r['checkmate%']:>11.1f}"
                   f"{r['shot_H%']:>9.1f}{r['avg_elections']:>11.1f}{r['avg_chaos']:>8.2f}"
                   f"{r['avg_executions']:>8.2f}")
